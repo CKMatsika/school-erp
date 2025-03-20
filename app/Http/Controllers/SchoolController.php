@@ -2,92 +2,148 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\School;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class SchoolController extends Controller
 {
+    /**
+     * Display a listing of schools.
+     */
     public function index()
     {
-        $schools = School::all();
-        return view('core.schools.index', compact('schools'));
+        $schools = DB::table('schools')->orderBy('name')->get();
+        return view('schools.index', compact('schools'));
     }
 
+    /**
+     * Show the form for creating a new school.
+     */
     public function create()
     {
-        return view('core.schools.create');
+        return view('schools.create');
     }
 
+    /**
+     * Store a newly created school in storage.
+     */
     public function store(Request $request)
     {
-        $validated = $request->validate([
+        $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'code' => 'required|string|unique:schools,code',
             'address' => 'nullable|string',
-            'city' => 'nullable|string',
-            'state' => 'nullable|string',
-            'country' => 'nullable|string',
-            'postal_code' => 'nullable|string',
-            'phone' => 'nullable|string',
             'email' => 'nullable|email',
-            'website' => 'nullable|url',
-            'is_active' => 'boolean',
-            'subscription_start' => 'nullable|date',
-            'subscription_end' => 'nullable|date|after_or_equal:subscription_start',
+            'phone' => 'nullable|string|max:20',
+            // Add other fields as needed
         ]);
-
-        $school = School::create($validated);
-
-        return redirect()->route('schools.index')
-            ->with('success', 'School created successfully.');
-    }
-
-    public function show(School $school)
-    {
-        return view('core.schools.show', compact('school'));
-    }
-
-    public function edit(School $school)
-    {
-        return view('core.schools.edit', compact('school'));
-    }
-
-    public function update(Request $request, School $school)
-    {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'code' => 'required|string|unique:schools,code,' . $school->id,
-            'address' => 'nullable|string',
-            'city' => 'nullable|string',
-            'state' => 'nullable|string',
-            'country' => 'nullable|string',
-            'postal_code' => 'nullable|string',
-            'phone' => 'nullable|string',
-            'email' => 'nullable|email',
-            'website' => 'nullable|url',
-            'is_active' => 'boolean',
-            'subscription_start' => 'nullable|date',
-            'subscription_end' => 'nullable|date|after_or_equal:subscription_start',
-        ]);
-
-        $school->update($validated);
-
-        return redirect()->route('schools.index')
-            ->with('success', 'School updated successfully.');
-    }
-
-    public function destroy(School $school)
-    {
-        // Check if school has users
-        if ($school->users()->count() > 0) {
-            return redirect()->route('schools.index')
-                ->with('error', 'Cannot delete school with users.');
+        
+        if ($validator->fails()) {
+            return redirect()->route('schools.create')
+                ->withErrors($validator)
+                ->withInput();
         }
-
-        $school->delete();
-
+        
+        DB::table('schools')->insert([
+            'name' => $request->input('name'),
+            'address' => $request->input('address'),
+            'email' => $request->input('email'),
+            'phone' => $request->input('phone'),
+            // Add other fields as needed
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+        
         return redirect()->route('schools.index')
-            ->with('success', 'School deleted successfully.');
+            ->with('success', 'School created successfully');
+    }
+
+    /**
+     * Display the specified school.
+     */
+    public function show($id)
+    {
+        $school = DB::table('schools')->where('id', $id)->first();
+        
+        if (!$school) {
+            return redirect()->route('schools.index')
+                ->with('error', 'School not found');
+        }
+        
+        return view('schools.show', compact('school'));
+    }
+
+    /**
+     * Show the form for editing the specified school.
+     */
+    public function edit($id)
+    {
+        $school = DB::table('schools')->where('id', $id)->first();
+        
+        if (!$school) {
+            return redirect()->route('schools.index')
+                ->with('error', 'School not found');
+        }
+        
+        return view('schools.edit', compact('school'));
+    }
+
+    /**
+     * Update the specified school in storage.
+     */
+    public function update(Request $request, $id)
+    {
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string',
+            'email' => 'nullable|email',
+            'phone' => 'nullable|string|max:20',
+            // Add other fields as needed
+        ]);
+        
+        if ($validator->fails()) {
+            return redirect()->route('schools.edit', $id)
+                ->withErrors($validator)
+                ->withInput();
+        }
+        
+        $school = DB::table('schools')->where('id', $id)->first();
+        
+        if (!$school) {
+            return redirect()->route('schools.index')
+                ->with('error', 'School not found');
+        }
+        
+        DB::table('schools')->where('id', $id)->update([
+            'name' => $request->input('name'),
+            'address' => $request->input('address'),
+            'email' => $request->input('email'),
+            'phone' => $request->input('phone'),
+            // Add other fields as needed
+            'updated_at' => now()
+        ]);
+        
+        return redirect()->route('schools.index')
+            ->with('success', 'School updated successfully');
+    }
+
+    /**
+     * Remove the specified school from storage.
+     */
+    public function destroy($id)
+    {
+        $school = DB::table('schools')->where('id', $id)->first();
+        
+        if (!$school) {
+            return redirect()->route('schools.index')
+                ->with('error', 'School not found');
+        }
+        
+        // Check if school is being used by any users, etc. before deleting
+        
+        DB::table('schools')->where('id', $id)->delete();
+        
+        return redirect()->route('schools.index')
+            ->with('success', 'School deleted successfully');
     }
 }

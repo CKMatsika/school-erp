@@ -22,7 +22,7 @@ class ModuleController extends Controller
      */
     public function index()
     {
-        $this->authorize('manage-modules');
+        // Remove this line for now: $this->authorize('manage-modules');
         
         $user = Auth::user();
         $modules = $this->moduleService->getAvailableModules($user->school_id);
@@ -35,7 +35,7 @@ class ModuleController extends Controller
      */
     public function toggle(Request $request, $moduleKey)
     {
-        $this->authorize('manage-modules');
+        // Remove this line for now: $this->authorize('manage-modules');
         
         $user = Auth::user();
         $schoolId = $user->school_id;

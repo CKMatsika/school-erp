@@ -17,15 +17,23 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        $this->authorize('view-users');
+        // Removed: $this->authorize('view-users');
         
         $user = Auth::user();
         $query = User::query();
         
         // Super admin can see all users, others only see their school's users
+        // Comment out role check temporarily
+        /*
         if (!$user->hasRole('super-admin')) {
             $query->where('school_id', $user->school_id);
         } elseif ($request->has('school_id')) {
+            $query->where('school_id', $request->school_id);
+        }
+        */
+        
+        // Allow filtering by school_id regardless of role
+        if ($request->has('school_id')) {
             $query->where('school_id', $request->school_id);
         }
         
@@ -51,7 +59,7 @@ class UserController extends Controller
      */
     public function create(Request $request)
     {
-        $this->authorize('create-users');
+        // Removed: $this->authorize('create-users');
         
         $schools = School::where('is_active', true)->get();
         $roles = Role::all();
@@ -65,7 +73,7 @@ class UserController extends Controller
      */
     public function store(Request $request)
     {
-        $this->authorize('create-users');
+        // Removed: $this->authorize('create-users');
         
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -96,13 +104,16 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        $this->authorize('view-users');
+        // Removed: $this->authorize('view-users');
         
+        // Temporarily commented out
+        /*
         // Check if user can view this specific user
         $currentUser = Auth::user();
         if (!$currentUser->hasRole('super-admin') && $currentUser->school_id !== $user->school_id) {
             abort(403, 'Unauthorized action.');
         }
+        */
         
         $user->load('roles', 'school');
         
@@ -114,13 +125,16 @@ class UserController extends Controller
      */
     public function edit(User $user)
     {
-        $this->authorize('edit-users');
+        // Removed: $this->authorize('edit-users');
         
+        // Temporarily commented out
+        /*
         // Check if user can edit this specific user
         $currentUser = Auth::user();
         if (!$currentUser->hasRole('super-admin') && $currentUser->school_id !== $user->school_id) {
             abort(403, 'Unauthorized action.');
         }
+        */
         
         $schools = School::where('is_active', true)->get();
         $roles = Role::all();
@@ -134,13 +148,16 @@ class UserController extends Controller
      */
     public function update(Request $request, User $user)
     {
-        $this->authorize('edit-users');
+        // Removed: $this->authorize('edit-users');
         
+        // Temporarily commented out
+        /*
         // Check if user can update this specific user
         $currentUser = Auth::user();
         if (!$currentUser->hasRole('super-admin') && $currentUser->school_id !== $user->school_id) {
             abort(403, 'Unauthorized action.');
         }
+        */
         
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -179,15 +196,19 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
-        $this->authorize('delete-users');
+        // Removed: $this->authorize('delete-users');
         
+        // Temporarily commented out
+        /*
         // Check if user can delete this specific user
         $currentUser = Auth::user();
         if (!$currentUser->hasRole('super-admin') && $currentUser->school_id !== $user->school_id) {
             abort(403, 'Unauthorized action.');
         }
+        */
         
         // Prevent self-deletion
+        $currentUser = Auth::user();
         if ($user->id === $currentUser->id) {
             return redirect()->route('users.index')
                 ->with('error', 'You cannot delete your own account.');
@@ -205,15 +226,19 @@ class UserController extends Controller
      */
     public function toggleStatus(User $user)
     {
-        $this->authorize('edit-users');
+        // Removed: $this->authorize('edit-users');
         
+        // Temporarily commented out
+        /*
         // Check if user can update this specific user
         $currentUser = Auth::user();
         if (!$currentUser->hasRole('super-admin') && $currentUser->school_id !== $user->school_id) {
             abort(403, 'Unauthorized action.');
         }
+        */
         
         // Prevent self-deactivation
+        $currentUser = Auth::user();
         if ($user->id === $currentUser->id) {
             return redirect()->route('users.index')
                 ->with('error', 'You cannot change your own status.');

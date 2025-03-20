@@ -1,5 +1,5 @@
-// app/Models/User.php
 <?php
+// app/Models/User.php
 
 namespace App\Models;
 

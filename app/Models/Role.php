@@ -1,4 +1,3 @@
-// app/Models/Role.php
 <?php
 
 namespace App\Models;

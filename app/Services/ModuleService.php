@@ -1,4 +1,3 @@
-// app/Services/ModuleService.php
 <?php
 
 namespace App\Services;
