@@ -11,23 +11,25 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('accounting_contacts', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('school_id')->nullable()->constrained('schools');
-            $table->string('contact_type'); // customer, vendor, student
-            $table->string('name');
-            $table->string('email')->nullable();
-            $table->string('phone')->nullable();
-            $table->string('address')->nullable();
-            $table->string('city')->nullable();
-            $table->string('state')->nullable();
-            $table->string('postal_code')->nullable();
-            $table->string('country')->nullable();
-            $table->string('tax_number')->nullable();
-            $table->boolean('is_active')->default(true);
-            $table->foreignId('student_id')->nullable(); // Link to student table
-            $table->timestamps();
-        });
+        if (!Schema::hasTable('accounting_contacts')) {
+            Schema::create('accounting_contacts', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('school_id')->nullable()->constrained('schools');
+                $table->string('contact_type'); // customer, vendor, student
+                $table->string('name');
+                $table->string('email')->nullable();
+                $table->string('phone')->nullable();
+                $table->string('address')->nullable();
+                $table->string('city')->nullable();
+                $table->string('state')->nullable();
+                $table->string('postal_code')->nullable();
+                $table->string('country')->nullable();
+                $table->string('tax_number')->nullable();
+                $table->boolean('is_active')->default(true);
+                $table->foreignId('student_id')->nullable(); // Link to student table
+                $table->timestamps();
+            });
+        }
     }
 
     /**

@@ -48,6 +48,7 @@
                 <div class="p-6 bg-white border-b border-gray-200">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Quick Actions</h3>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <!-- Core Functions -->
                         <a href="{{ route('accounting.invoices.create') }}" class="bg-indigo-50 p-4 rounded-lg border border-indigo-200 text-center hover:bg-indigo-100 transition">
                             <svg class="w-6 h-6 mx-auto text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                             <span class="block mt-2 text-sm font-medium text-indigo-700">New Invoice</span>
@@ -66,6 +67,81 @@
                         <a href="{{ route('accounting.reports.index') }}" class="bg-blue-50 p-4 rounded-lg border border-blue-200 text-center hover:bg-blue-100 transition">
                             <svg class="w-6 h-6 mx-auto text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
                             <span class="block mt-2 text-sm font-medium text-blue-700">Reports</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Student Financial Management -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6 bg-white border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Student Financial Management</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <!-- Temporary fix until route is properly defined -->
+                        <a href="{{ url('accounting/bulk-invoice') }}" class="...">
+                            <svg class="w-6 h-6 mx-auto text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-blue-700">Bulk Invoice</span>
+                        </a>
+                        
+                        <a href="{{ route('accounting.student-ledger.index') }}" class="bg-indigo-50 p-4 rounded-lg border border-indigo-200 text-center hover:bg-indigo-100 transition">
+                            <svg class="w-6 h-6 mx-auto text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-indigo-700">Student Ledger</span>
+                        </a>
+                        
+                        <a href="{{ route('accounting.payment-plans.index') }}" class="bg-purple-50 p-4 rounded-lg border border-purple-200 text-center hover:bg-purple-100 transition">
+                            <svg class="w-6 h-6 mx-auto text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-purple-700">Payment Plans</span>
+                        </a>
+                        
+                        <a href="{{ route('accounting.student-debts.age-analysis') }}" class="bg-pink-50 p-4 rounded-lg border border-pink-200 text-center hover:bg-pink-100 transition">
+                            <svg class="w-6 h-6 mx-auto text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-pink-700">Age Analysis</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Advanced Features -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6 bg-white border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Budget & Management</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <a href="{{ route('accounting.budgets.index') }}" class="bg-green-50 p-4 rounded-lg border border-green-200 text-center hover:bg-green-100 transition">
+                            <svg class="w-6 h-6 mx-auto text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-green-700">Budgets</span>
+                        </a>
+                        
+                        <a href="{{ route('accounting.capex.index') }}" class="bg-teal-50 p-4 rounded-lg border border-teal-200 text-center hover:bg-teal-100 transition">
+                            <svg class="w-6 h-6 mx-auto text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-teal-700">CapEx Projects</span>
+                        </a>
+                        
+                        <a href="{{ route('accounting.sms.send') }}" class="bg-orange-50 p-4 rounded-lg border border-orange-200 text-center hover:bg-orange-100 transition">
+                            <svg class="w-6 h-6 mx-auto text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-orange-700">Send SMS</span>
+                        </a>
+                        
+                        <a href="{{ route('accounting.reports.budget-vs-actual') }}" class="bg-cyan-50 p-4 rounded-lg border border-cyan-200 text-center hover:bg-cyan-100 transition">
+                            <svg class="w-6 h-6 mx-auto text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-cyan-700">Budget Reports</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Student Management (Temporary) -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6 bg-white border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Student Management</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <a href="{{ route('students.import') }}" class="bg-emerald-50 p-4 rounded-lg border border-emerald-200 text-center hover:bg-emerald-100 transition">
+                            <svg class="w-6 h-6 mx-auto text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-emerald-700">Import Students</span>
+                        </a>
+                        
+                        <a href="{{ route('students.promotion') }}" class="bg-amber-50 p-4 rounded-lg border border-amber-200 text-center hover:bg-amber-100 transition">
+                            <svg class="w-6 h-6 mx-auto text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path></svg>
+                            <span class="block mt-2 text-sm font-medium text-amber-700">Student Promotion</span>
                         </a>
                     </div>
                 </div>

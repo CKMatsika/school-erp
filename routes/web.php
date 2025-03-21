@@ -204,6 +204,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('notifications', NotificationsController::class);
     });
 });
-
+// Include Accounting Module Routes
+require __DIR__.'/accounting/web.php';
 // Include Breeze auth routes
 require __DIR__.'/auth.php';
