@@ -131,6 +131,13 @@
                                                     <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
                                                 </svg>
                                             </a>
+                                        @elseif($module->key === 'accounting')
+                                            <a href="{{ route('accounting.dashboard') }}" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-900">
+                                                <span>Access Module</span>
+                                                <svg class="ml-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                                    <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                                </svg>
+                                            </a>
                                         @else
                                             <a href="#" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-900">
                                                 <span>Access Module</span>
@@ -166,14 +173,12 @@
                             </div>
                         </div>
                         
-                        <!-- You can add more module cards here as you build them -->
-                        <!-- Example for future modules (commented out) -->
-                        <!--
+                        <!-- Accounting & Finance Module Card -->
                         <div class="bg-white p-4 rounded border border-gray-200 shadow-sm hover:shadow transition duration-150">
                             <h4 class="font-medium text-gray-900 mb-2">Accounting & Finance</h4>
-                            <p class="text-sm text-gray-600 mb-3">Manage school finances, fees, expenses and budgets</p>
+                            <p class="text-sm text-gray-600 mb-3">Manage school finances, fees, expenses and financial reports</p>
                             <div class="mt-auto">
-                                <a href="#" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-900">
+                                <a href="{{ route('accounting.dashboard') }}" class="inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-900">
                                     <span>Access Module</span>
                                     <svg class="ml-1 w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
                                         <path fill-rule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd"></path>
@@ -182,6 +187,8 @@
                             </div>
                         </div>
                         
+                        <!-- Placeholder for future modules -->
+                        <!--
                         <div class="bg-white p-4 rounded border border-gray-200 shadow-sm hover:shadow transition duration-150">
                             <h4 class="font-medium text-gray-900 mb-2">Student Management</h4>
                             <p class="text-sm text-gray-600 mb-3">Student records, attendance, performance tracking</p>
