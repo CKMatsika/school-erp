@@ -208,3 +208,5 @@ Route::middleware('auth')->group(function () {
 require __DIR__.'/accounting/web.php';
 // Include Breeze auth routes
 require __DIR__.'/auth.php';
+// Student Management Module Routes
+require __DIR__.'/student/web.php';

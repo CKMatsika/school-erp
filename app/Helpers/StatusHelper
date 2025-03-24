@@ -1,0 +1,57 @@
+<?php
+
+namespace App\Helpers;
+
+class StatusHelper
+{
+    /**
+     * Get the Tailwind CSS color class for the given status
+     *
+     * @param string $status
+     * @return string
+     */
+    public static function getStatusColorClass($status)
+    {
+        $classes = [
+            // Student statuses
+            'active' => 'bg-green-100 text-green-800',
+            'inactive' => 'bg-red-100 text-red-800',
+            'graduated' => 'bg-blue-100 text-blue-800',
+            'transferred' => 'bg-yellow-100 text-yellow-800',
+            'withdrawn' => 'bg-red-100 text-red-800',
+            
+            // Application statuses
+            'submitted' => 'bg-blue-100 text-blue-800',
+            'under_review' => 'bg-yellow-100 text-yellow-800',
+            'pending_documents' => 'bg-red-100 text-red-800',
+            'interview_scheduled' => 'bg-purple-100 text-purple-800',
+            'accepted' => 'bg-green-100 text-green-800',
+            'rejected' => 'bg-red-100 text-red-800',
+            'waitlisted' => 'bg-gray-100 text-gray-800',
+            'enrolled' => 'bg-green-100 text-green-800',
+            
+            // Enrollment statuses
+            'completed' => 'bg-blue-100 text-blue-800',
+        ];
+        
+        return $classes[$status] ?? 'bg-gray-100 text-gray-800';
+    }
+    
+    /**
+     * Get the human-readable label for the given status
+     *
+     * @param string $status
+     * @return string
+     */
+    public static function getStatusLabel($status)
+    {
+        $labels = [
+            // Common conversions
+            'under_review' => 'Under Review',
+            'pending_documents' => 'Pending Documents',
+            'interview_scheduled' => 'Interview Scheduled',
+        ];
+        
+        return $labels[$status] ?? ucfirst(str_replace('_', ' ', $status));
+    }
+}
