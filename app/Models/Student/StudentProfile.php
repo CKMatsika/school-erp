@@ -1,20 +1,20 @@
 <?php
 
-namespace App\Models\StudentProfile;
+namespace App\Models\Student;
 
 use App\Models\Accounting\Invoice;
 use App\Models\Accounting\Payment;
 use App\Models\Accounting\PaymentPlan;
 use App\Models\Accounting\StudentDebt;
 use App\Models\Traits\HasStatus;
-use App\Models\Traits\LogsActivity; // Add this import
+use App\Models\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class StudentProfile extends Model
 {
-    use HasFactory, SoftDeletes, HasStatus, LogsActivity; // Add LogsActivity trait here
+    use HasFactory, SoftDeletes, HasStatus, LogsActivity;
 
     protected $fillable = [
         'school_id',
@@ -33,6 +33,8 @@ class StudentProfile extends Model
         'enrollment_date',
         'graduation_date',
         'is_boarder',
+        'boarding_status',
+        'current_hostel_allocation_id',
     ];
 
     protected $casts = [
@@ -137,6 +139,169 @@ class StudentProfile extends Model
     }
 
     /**
+     * Get the current hostel allocation for this student.
+     */
+    public function currentHostelAllocation()
+    {
+        return $this->hasOne(HostelAllocation::class, 'id', 'current_hostel_allocation_id');
+    }
+
+    /**
+     * Get all hostel allocations for this student.
+     */
+    public function hostelAllocations()
+    {
+        return $this->hasMany(HostelAllocation::class, 'student_profile_id');
+    }
+
+    /**
+     * Get the current bed allocation.
+     */
+    public function currentBed()
+    {
+        return $this->currentHostelAllocation ? $this->currentHostelAllocation->bed : null;
+    }
+
+    /**
+     * Get the current room allocation.
+     */
+    public function currentRoom()
+    {
+        return $this->currentBed ? $this->currentBed->room : null;
+    }
+
+    /**
+     * Get the current house allocation.
+     */
+    public function currentHouse()
+    {
+        return $this->currentRoom ? $this->currentRoom->house : null;
+    }
+
+    /**
+     * Allocate a bed to this student.
+     */
+    public function allocateBed(HostelBed $bed, $academicYearId = null, $notes = null)
+    {
+        // Check if the bed is available
+        if ($bed->status !== 'available' || !$bed->is_active) {
+            return false;
+        }
+        
+        // Check if bed's house gender matches student's gender
+        $house = $bed->room->house;
+        if ($house->gender !== 'mixed' && $house->gender !== $this->gender) {
+            return false;
+        }
+        
+        // Start a transaction
+        \DB::beginTransaction();
+        
+        try {
+            // End any existing allocations
+            $this->endCurrentAllocation();
+            
+            // Create a new allocation
+            $allocation = HostelAllocation::create([
+                'student_profile_id' => $this->id,
+                'hostel_bed_id' => $bed->id,
+                'academic_year_id' => $academicYearId,
+                'allocation_date' => now(),
+                'is_current' => true,
+                'status' => 'active',
+                'notes' => $notes
+            ]);
+            
+            // Update the bed status
+            $bed->update([
+                'status' => 'occupied'
+            ]);
+            
+            // Update the student's boarding status
+            $this->update([
+                'is_boarder' => true,
+                'boarding_status' => 'allocated',
+                'current_hostel_allocation_id' => $allocation->id
+            ]);
+            
+            \DB::commit();
+            return $allocation;
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return false;
+        }
+    }
+
+    /**
+     * End the current bed allocation.
+     */
+    public function endCurrentAllocation()
+    {
+        if (!$this->currentHostelAllocation) {
+            return true;
+        }
+
+        // Start a transaction
+        \DB::beginTransaction();
+        
+        try {
+            $currentBed = $this->currentBed();
+            
+            // Update the allocation
+            $this->currentHostelAllocation->update([
+                'is_current' => false,
+                'status' => 'ended',
+                'expiry_date' => now()
+            ]);
+            
+            // Update the bed status
+            if ($currentBed) {
+                $currentBed->update(['status' => 'available']);
+            }
+            
+            // Update student status
+            $this->update([
+                'boarding_status' => 'day_scholar',
+                'current_hostel_allocation_id' => null
+            ]);
+            
+            \DB::commit();
+            return true;
+        } catch (\Exception $e) {
+            \DB::rollBack();
+            return false;
+        }
+    }
+
+    /**
+     * Check if this student has an active hostel allocation.
+     */
+    public function hasActiveHostelAllocation()
+    {
+        return $this->currentHostelAllocation !== null;
+    }
+
+    /**
+     * Get the current hostel allocation details.
+     */
+    public function getCurrentHostelDetailsAttribute()
+    {
+        if (!$this->currentHostelAllocation) {
+            return 'Not allocated';
+        }
+        
+        $bed = $this->currentBed();
+        $room = $this->currentRoom();
+        $house = $this->currentHouse();
+        
+        if (!$bed || !$room || !$house) {
+            return 'Allocation data incomplete';
+        }
+        
+        return "House: {$house->name}, Room: {$room->room_number}, Bed: {$bed->bed_number}";
+    }
+
+    /**
      * Scope a query to only include active students.
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
@@ -157,6 +322,26 @@ class StudentProfile extends Model
         $totalInvoiced = $this->invoices->sum('total');
         $totalPaid = $this->payments->sum('amount');
         return $totalInvoiced - $totalPaid;
+    }
+
+    /**
+     * Filter students by boarding status.
+     */
+    public function scopeBoarders($query, $isBoarder = true)
+    {
+        return $query->where('is_boarder', $isBoarder);
+    }
+
+    /**
+     * Filter students by boarding status.
+     */
+    public function scopeBoardingStatus($query, $status)
+    {
+        if ($status) {
+            return $query->where('boarding_status', $status);
+        }
+        
+        return $query;
     }
 
     /**
@@ -192,6 +377,22 @@ class StudentProfile extends Model
 
         $query->when(isset($filters['is_boarder']), function ($query) use ($filters) {
             $query->where('is_boarder', $filters['is_boarder'] == 1);
+        });
+
+        $query->when($filters['boarding_status'] ?? null, function ($query, $boardingStatus) {
+            $query->where('boarding_status', $boardingStatus);
+        });
+
+        $query->when($filters['hostel_house_id'] ?? null, function ($query, $houseId) {
+            $query->whereHas('currentBed.room.house', function ($query) use ($houseId) {
+                $query->where('id', $houseId);
+            });
+        });
+
+        $query->when($filters['hostel_room_id'] ?? null, function ($query, $roomId) {
+            $query->whereHas('currentBed.room', function ($query) use ($roomId) {
+                $query->where('id', $roomId);
+            });
         });
 
         return $query;

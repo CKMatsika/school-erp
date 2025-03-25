@@ -26,12 +26,70 @@ class ApplicationController extends Controller
                                   ->pluck('count', 'status')
                                   ->toArray();
 
-    // Add this line to fix the error
-    $pendingApplications = Application::where('school_id', auth()->user()->school_id)
-    ->whereIn('status', ['submitted', 'under_review', 'pending_documents', 'interview_scheduled'])
-    ->get();
+        // Get applications grouped by status
+        // For pending applications
+        $pendingApplications = Application::where('school_id', auth()->user()->school_id)
+            ->whereIn('status', ['submitted', 'under_review', 'pending_documents', 'interview_scheduled'])
+            ->get();
+            
+        // For accepted applications
+        $acceptedApplications = Application::where('school_id', auth()->user()->school_id)
+            ->whereIn('status', ['accepted', 'waitlisted'])
+            ->orderByDesc('decision_date')
+            ->get();
+            
+        // For rejected applications
+        $rejectedApplications = Application::where('school_id', auth()->user()->school_id)
+            ->where('status', 'rejected')
+            ->orderByDesc('decision_date')
+            ->get();
+            
+        // For enrolled applications
+        $enrolledApplications = Application::where('school_id', auth()->user()->school_id)
+            ->where('status', 'enrolled')
+            ->orderByDesc('decision_date')
+            ->get();
+            
+        // For all other possible statuses
+        $waitlistedApplications = Application::where('school_id', auth()->user()->school_id)
+            ->where('status', 'waitlisted')
+            ->orderByDesc('decision_date')
+            ->get();
+            
+        $submittedApplications = Application::where('school_id', auth()->user()->school_id)
+            ->where('status', 'submitted')
+            ->orderByDesc('submission_date')
+            ->get();
+            
+        $underReviewApplications = Application::where('school_id', auth()->user()->school_id)
+            ->where('status', 'under_review')
+            ->orderByDesc('submission_date')
+            ->get();
+            
+        $pendingDocumentsApplications = Application::where('school_id', auth()->user()->school_id)
+            ->where('status', 'pending_documents')
+            ->orderByDesc('submission_date')
+            ->get();
+            
+        $interviewScheduledApplications = Application::where('school_id', auth()->user()->school_id)
+            ->where('status', 'interview_scheduled')
+            ->orderByDesc('submission_date')
+            ->get();
         
-        return view('student.application-workflow.index', compact('applications', 'statusCounts'));
+        // Pass all variables to the view
+        return view('student.application-workflow.index', compact(
+            'applications', 
+            'statusCounts', 
+            'pendingApplications', 
+            'acceptedApplications',
+            'rejectedApplications',
+            'enrolledApplications',
+            'waitlistedApplications',
+            'submittedApplications',
+            'underReviewApplications',
+            'pendingDocumentsApplications',
+            'interviewScheduledApplications'
+        ));
     }
 
     public function create()
