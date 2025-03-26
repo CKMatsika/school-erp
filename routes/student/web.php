@@ -11,6 +11,12 @@ use App\Http\Controllers\Student\StudentDashboardController;
 use App\Http\Controllers\Student\ApplicationWorkflowController;
 use App\Http\Controllers\Student\DocumentController;
 use App\Http\Controllers\Student\StudentSearchController;
+// Hostel Management Controllers
+use App\Http\Controllers\Student\Hostel\HostelDashboardController;
+use App\Http\Controllers\Student\Hostel\HostelHouseController;
+use App\Http\Controllers\Student\Hostel\HostelRoomController;
+use App\Http\Controllers\Student\Hostel\HostelBedController;
+use App\Http\Controllers\Student\Hostel\HostelAllocationController;
 
 /*
 |--------------------------------------------------------------------------
@@ -77,4 +83,24 @@ Route::group(['middleware' => ['auth'], 'prefix' => 'student', 'as' => 'student.
     Route::put('/documents-types/{documentType}', [DocumentController::class, 'updateType'])->name('documents.updateType');
     Route::delete('/documents-types/{documentType}', [DocumentController::class, 'destroyType'])->name('documents.destroyType');
     Route::delete('/documents/{document}', [DocumentController::class, 'destroy'])->name('documents.destroy');
+    
+    // Hostel Management Routes
+    Route::prefix('hostel')->name('hostel.')->group(function () {
+        // Dashboard
+        Route::get('/', [HostelDashboardController::class, 'index'])->name('dashboard');
+
+        // Houses
+        Route::resource('houses', HostelHouseController::class);
+        
+        // Rooms
+        Route::resource('rooms', HostelRoomController::class);
+        
+        // Beds
+        Route::resource('beds', HostelBedController::class);
+        Route::post('beds/generate', [HostelBedController::class, 'generateBeds'])->name('beds.generate');
+        
+        // Allocations
+        Route::resource('allocations', HostelAllocationController::class);
+        Route::post('allocations/{allocation}/end', [HostelAllocationController::class, 'endAllocation'])->name('allocations.end');
+    });
 });

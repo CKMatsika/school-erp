@@ -15,6 +15,16 @@
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard') }}
                     </x-nav-link>
+                    
+                    <!-- Student Management Navigation Links -->
+                    <x-nav-link :href="route('student.dashboard')" :active="request()->routeIs('student.dashboard')">
+                        {{ __('Student Management') }}
+                    </x-nav-link>
+
+                    <!-- Hostel Management Link -->
+                    <x-nav-link :href="route('student.hostel.dashboard')" :active="request()->routeIs('student.hostel.*')">
+                        {{ __('Hostel Management') }}
+                    </x-nav-link>
                 </div>
             </div>
 
@@ -69,6 +79,16 @@
         <div class="pt-2 pb-3 space-y-1">
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard') }}
+            </x-responsive-nav-link>
+            
+            <!-- Student Management Responsive Link -->
+            <x-responsive-nav-link :href="route('student.dashboard')" :active="request()->routeIs('student.dashboard')">
+                {{ __('Student Management') }}
+            </x-responsive-nav-link>
+            
+            <!-- Hostel Management Responsive Link -->
+            <x-responsive-nav-link :href="route('student.hostel.dashboard')" :active="request()->routeIs('student.hostel.*')">
+                {{ __('Hostel Management') }}
             </x-responsive-nav-link>
         </div>
 

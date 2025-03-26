@@ -1,18 +1,20 @@
 <?php
+// File: app/Models/Student/HostelAllocation.php
 
 namespace App\Models\Student;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Models\AcademicYear;
 
 class HostelAllocation extends Model
 {
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'student_profile_id',
-        'hostel_bed_id',
+        'student_id',
+        'bed_id',
         'academic_year_id',
         'allocation_date',
         'expiry_date',
@@ -32,7 +34,7 @@ class HostelAllocation extends Model
      */
     public function student()
     {
-        return $this->belongsTo(StudentProfile::class, 'student_profile_id');
+        return $this->belongsTo(StudentProfile::class, 'student_id');
     }
 
     /**
@@ -40,7 +42,7 @@ class HostelAllocation extends Model
      */
     public function bed()
     {
-        return $this->belongsTo(HostelBed::class, 'hostel_bed_id');
+        return $this->belongsTo(HostelBed::class, 'bed_id');
     }
 
     /**
@@ -48,30 +50,7 @@ class HostelAllocation extends Model
      */
     public function academicYear()
     {
-        return $this->belongsTo(AcademicYear::class);
-    }
-
-    /**
-     * Get the room through the bed relationship.
-     */
-    public function room()
-    {
-        return $this->hasOneThrough(
-            HostelRoom::class,
-            HostelBed::class,
-            'id', // Foreign key on HostelBed table
-            'id', // Foreign key on HostelRoom table
-            'hostel_bed_id', // Local key on HostelAllocation table
-            'hostel_room_id' // Local key on HostelBed table
-        );
-    }
-
-    /**
-     * Get the house through the bed and room relationships.
-     */
-    public function house()
-    {
-        return $this->bed->room->house;
+        return $this->belongsTo(AcademicYear::class, 'academic_year_id');
     }
 
     /**
@@ -80,18 +59,6 @@ class HostelAllocation extends Model
     public function scopeCurrent($query)
     {
         return $query->where('is_current', true);
-    }
-
-    /**
-     * Scope a query to only include allocations for a specific academic year.
-     */
-    public function scopeAcademicYear($query, $academicYearId)
-    {
-        if ($academicYearId) {
-            return $query->where('academic_year_id', $academicYearId);
-        }
-        
-        return $query;
     }
 
     /**
