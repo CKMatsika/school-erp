@@ -1,0 +1,32 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class Criterion extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'marking_scheme_id',
+        'name',
+        'description',
+        'marks',
+        'weight'
+    ];
+
+    protected $casts = [
+        'marks' => 'integer',
+        'weight' => 'integer',
+    ];
+
+    /**
+     * Get the marking scheme that owns this criterion.
+     */
+    public function markingScheme()
+    {
+        return $this->belongsTo(MarkingScheme::class);
+    }
+}

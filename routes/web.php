@@ -210,3 +210,7 @@ require __DIR__.'/accounting/web.php';
 require __DIR__.'/auth.php';
 // Student Management Module Routes
 require __DIR__.'/student/web.php';
+// Teacher Management Module Routes
+require __DIR__.'/teacher/web.php';
+// In routes/web.php
+require __DIR__.'/admin/web.php';

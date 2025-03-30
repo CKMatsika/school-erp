@@ -1,0 +1,34 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+
+class SchemeWeek extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'scheme_of_work_id',
+        'week_number',
+        'topic',
+        'subtopics',
+        'learning_outcomes',
+        'teaching_activities',
+        'resources',
+        'assessment'
+    ];
+
+    protected $casts = [
+        'week_number' => 'integer',
+    ];
+
+    /**
+     * Get the scheme of work that owns this week.
+     */
+    public function schemeOfWork()
+    {
+        return $this->belongsTo(SchemeOfWork::class);
+    }
+}
