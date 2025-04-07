@@ -4,11 +4,16 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\ChartOfAccount;
-use App\Models\Accounting\FeeCategory;
+// Removed FeeCategory as it seems items link directly to ChartOfAccount now
+// use App\Models\Accounting\FeeCategory;
 use App\Models\Accounting\FeeStructure;
 use App\Models\Accounting\FeeStructureItem;
+use App\Models\Student\AcademicYear; // Corrected Namespace assumed
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth; // Added Auth
+use Illuminate\Support\Facades\Log;   // Added Log
+use Illuminate\Validation\Rule;       // Added Rule
 
 class FeeStructureController extends Controller
 {
@@ -17,7 +22,11 @@ class FeeStructureController extends Controller
      */
     public function index()
     {
-        $feeStructures = FeeStructure::all();
+        $school_id = Auth::user()?->school_id;
+        $feeStructures = FeeStructure::with('academicYear') // Eager load year
+                                     ->when($school_id, fn($q, $id) => $q->where('school_id', $id))
+                                     ->orderBy('name')
+                                     ->get(); // Consider pagination
         return view('accounting.fee-structures.index', compact('feeStructures'));
     }
 
@@ -26,8 +35,13 @@ class FeeStructureController extends Controller
      */
     public function create()
     {
-        $feeCategories = FeeCategory::where('is_active', true)->get();
-        return view('accounting.fee-structures.create', compact('feeCategories'));
+         $school_id = Auth::user()?->school_id;
+         // Fetch academic years associated with the school
+         $academicYears = AcademicYear::when($school_id, fn($q, $id) => $q->where('school_id', $id))
+                                     ->orderByDesc('start_date')
+                                     ->get();
+         // Removed $feeCategories as it's not used in the updated structure
+        return view('accounting.fee-structures.create', compact('academicYears'));
     }
 
     /**
@@ -35,55 +49,47 @@ class FeeStructureController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'academic_year' => 'required|string|max:20',
+             // Validate against academic_years table, check if it belongs to the school
+            'academic_year_id' => [
+                'nullable',
+                'integer',
+                 Rule::exists('academic_years', 'id')->where(function ($query) {
+                    $query->where('school_id', Auth::user()?->school_id);
+                 })
+             ],
             'description' => 'nullable|string',
-            'items' => 'required|array|min:1',
-            'items.*.fee_category_id' => 'required|exists:fee_categories,id',
-            'items.*.grade_level' => 'nullable|string',
-            'items.*.amount' => 'required|numeric|min:0',
-            'items.*.frequency' => 'required|in:once,term,monthly,annually',
-            'items.*.due_date' => 'nullable|date',
+            'is_active' => 'nullable|boolean', // Handled by boolean() below
+            // Removed item validation here, items are added on the show page now
+            // 'items' => 'required|array|min:1',
+            // 'items.*.fee_category_id' => 'required|exists:fee_categories,id',
+            // ... other item fields ...
         ]);
 
-        // Get school ID if available
-        $schoolId = null;
-        if (auth()->user()->school) {
-            $schoolId = auth()->user()->school->id;
-        }
+        $school_id = Auth::user()?->school_id;
 
-        // Start a database transaction
-        DB::beginTransaction();
-
+        DB::beginTransaction(); // Still good practice even without items initially
         try {
-            // Create the fee structure
+            // Create the fee structure header
             $feeStructure = FeeStructure::create([
-                'school_id' => $schoolId,
-                'name' => $request->name,
-                'academic_year' => $request->academic_year,
-                'description' => $request->description,
-                'is_active' => true,
+                'school_id' => $school_id,
+                'name' => $validated['name'],
+                'academic_year_id' => $validated['academic_year_id'], // Use the validated ID
+                'description' => $validated['description'],
+                'is_active' => $request->boolean('is_active'), // Use boolean helper, defaults to false if not present
             ]);
 
-            // Create the fee structure items
-            foreach ($request->items as $item) {
-                FeeStructureItem::create([
-                    'fee_structure_id' => $feeStructure->id,
-                    'fee_category_id' => $item['fee_category_id'],
-                    'grade_level' => $item['grade_level'] ?? null,
-                    'amount' => $item['amount'],
-                    'frequency' => $item['frequency'],
-                    'due_date' => $item['due_date'] ?? null,
-                ]);
-            }
+            // Items are now added via FeeStructureItemController from the show page
 
             DB::commit();
 
-            return redirect()->route('accounting.fee-structures.index')
-                ->with('success', 'Fee structure created successfully.');
+            // Redirect to the SHOW page to allow adding items immediately
+            return redirect()->route('accounting.fee-structures.show', $feeStructure)
+                ->with('success', 'Fee Structure created successfully. You can now add items.');
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error("Error creating fee structure: " . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Error creating fee structure: ' . $e->getMessage())
                 ->withInput();
@@ -92,11 +98,28 @@ class FeeStructureController extends Controller
 
     /**
      * Display the specified resource.
+     * This now needs to pass income accounts for the "Add Item" form.
      */
     public function show(FeeStructure $feeStructure)
     {
-        $feeStructure->load(['items.feeCategory']);
-        return view('accounting.fee-structures.show', compact('feeStructure'));
+         // TODO: Authorization Check (e.g., using the helper method if defined)
+         $this->authorizeSchoolAccess($feeStructure);
+
+         // Eager load items and their linked accounts & academic year
+         $feeStructure->load(['items.incomeAccount', 'academicYear']);
+
+         $school_id = Auth::user()?->school_id;
+
+         // Get Income/Revenue accounts for the "Add Item" form dropdown
+         $incomeAccounts = ChartOfAccount::whereHas('accountType', fn($q) => $q->whereIn('code', ['INCOME', 'REVENUE']))
+                                    ->where('is_active', true)
+                                    // Decide if CoA is school-specific or global
+                                    // ->when($school_id, fn($q, $id) => $q->where('school_id', $id))
+                                    ->orderBy('name')
+                                    ->get(['id', 'name', 'account_code']); // Select necessary fields
+
+
+        return view('accounting.fee-structures.show', compact('feeStructure', 'incomeAccounts'));
     }
 
     /**
@@ -104,87 +127,61 @@ class FeeStructureController extends Controller
      */
     public function edit(FeeStructure $feeStructure)
     {
-        $feeStructure->load(['items.feeCategory']);
-        $feeCategories = FeeCategory::where('is_active', true)->get();
-        
-        return view('accounting.fee-structures.edit', compact('feeStructure', 'feeCategories'));
+         // TODO: Authorization Check
+         $this->authorizeSchoolAccess($feeStructure);
+
+         $school_id = Auth::user()?->school_id;
+         $academicYears = AcademicYear::when($school_id, fn($q, $id) => $q->where('school_id', $id))
+                                     ->orderByDesc('start_date')
+                                     ->get();
+         // Items are edited/deleted on the show page now, so no need to load them here.
+         // Removed $feeCategories
+        return view('accounting.fee-structures.edit', compact('feeStructure', 'academicYears'));
     }
 
     /**
      * Update the specified resource in storage.
+     * Items are now updated via FeeStructureItemController.
      */
     public function update(Request $request, FeeStructure $feeStructure)
     {
-        $request->validate([
+         // TODO: Authorization Check
+         $this->authorizeSchoolAccess($feeStructure);
+
+         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'academic_year' => 'required|string|max:20',
+            'academic_year_id' => [
+                'nullable',
+                'integer',
+                 Rule::exists('academic_years', 'id')->where(function ($query) {
+                    $query->where('school_id', Auth::user()?->school_id);
+                 })
+             ],
             'description' => 'nullable|string',
             'is_active' => 'nullable|boolean',
-            'items' => 'required|array|min:1',
-            'items.*.id' => 'nullable|exists:fee_structure_items,id',
-            'items.*.fee_category_id' => 'required|exists:fee_categories,id',
-            'items.*.grade_level' => 'nullable|string',
-            'items.*.amount' => 'required|numeric|min:0',
-            'items.*.frequency' => 'required|in:once,term,monthly,annually',
-            'items.*.due_date' => 'nullable|date',
+            // Removed item validation - handled separately
         ]);
 
-        // Start a database transaction
-        DB::beginTransaction();
-
+        DB::beginTransaction(); // Use transaction for safety
         try {
-            // Update the fee structure
+            // Update the fee structure header only
             $feeStructure->update([
-                'name' => $request->name,
-                'academic_year' => $request->academic_year,
-                'description' => $request->description,
-                'is_active' => $request->has('is_active'),
+                'name' => $validated['name'],
+                'academic_year_id' => $validated['academic_year_id'],
+                'description' => $validated['description'],
+                'is_active' => $request->boolean('is_active'),
             ]);
 
-            // Get the IDs of existing items
-            $existingItemIds = $feeStructure->items->pluck('id')->toArray();
-            $updatedItemIds = [];
-
-            // Update or create the fee structure items
-            foreach ($request->items as $itemData) {
-                if (isset($itemData['id']) && in_array($itemData['id'], $existingItemIds)) {
-                    // Update existing item
-                    $item = FeeStructureItem::find($itemData['id']);
-                    $item->update([
-                        'fee_category_id' => $itemData['fee_category_id'],
-                        'grade_level' => $itemData['grade_level'] ?? null,
-                        'amount' => $itemData['amount'],
-                        'frequency' => $itemData['frequency'],
-                        'due_date' => $itemData['due_date'] ?? null,
-                    ]);
-                    $updatedItemIds[] = $item->id;
-                } else {
-                    // Create new item
-                    $item = FeeStructureItem::create([
-                        'fee_structure_id' => $feeStructure->id,
-                        'fee_category_id' => $itemData['fee_category_id'],
-                        'grade_level' => $itemData['grade_level'] ?? null,
-                        'amount' => $itemData['amount'],
-                        'frequency' => $itemData['frequency'],
-                        'due_date' => $itemData['due_date'] ?? null,
-                    ]);
-                    $updatedItemIds[] = $item->id;
-                }
-            }
-
-            // Delete removed items
-            foreach ($existingItemIds as $itemId) {
-                if (!in_array($itemId, $updatedItemIds)) {
-                    FeeStructureItem::destroy($itemId);
-                }
-            }
+            // Items are managed via FeeStructureItemController
 
             DB::commit();
 
+            // Redirect to the show page after update
             return redirect()->route('accounting.fee-structures.show', $feeStructure)
-                ->with('success', 'Fee structure updated successfully.');
+                ->with('success', 'Fee Structure updated successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
+             Log::error("Error updating fee structure {$feeStructure->id}: " . $e->getMessage());
             return redirect()->back()
                 ->with('error', 'Error updating fee structure: ' . $e->getMessage())
                 ->withInput();
@@ -196,24 +193,39 @@ class FeeStructureController extends Controller
      */
     public function destroy(FeeStructure $feeStructure)
     {
-        // Start a database transaction
+         // TODO: Authorization Check
+         $this->authorizeSchoolAccess($feeStructure);
+
+        // Optional: Add check if used by invoices before allowing deletion
+        // if (Invoice::where('fee_schedule_id', $feeStructure->id)->exists()) {
+        //     return redirect()->route('accounting.fee-structures.index')->with('error', 'Cannot delete: Structure is used by invoices.');
+        // }
+
         DB::beginTransaction();
-
         try {
-            // Delete the fee structure items
-            $feeStructure->items()->delete();
-            
-            // Delete the fee structure
+            $structureName = $feeStructure->name;
+            // Items should be deleted by cascade constraint if set up correctly.
+            // If not, delete them manually first: $feeStructure->items()->delete();
             $feeStructure->delete();
-
             DB::commit();
-
             return redirect()->route('accounting.fee-structures.index')
-                ->with('success', 'Fee structure deleted successfully.');
+                   ->with('success', "Fee Structure '{$structureName}' deleted successfully.");
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->route('accounting.fee-structures.index')
-                ->with('error', 'Error deleting fee structure: ' . $e->getMessage());
+             Log::error("Error deleting fee structure {$feeStructure->id}: " . $e->getMessage());
+              return redirect()->route('accounting.fee-structures.index')
+                   ->with('error', 'Failed to delete fee structure.');
+        }
+    }
+
+     /**
+     * Basic authorization check helper (Example)
+     */
+    private function authorizeSchoolAccess($model)
+    {
+        $userSchoolId = Auth::user()?->school_id;
+        if ($userSchoolId && isset($model->school_id) && $model->school_id !== $userSchoolId) {
+            abort(403, 'Unauthorized action.');
         }
     }
 }

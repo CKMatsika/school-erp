@@ -16,7 +16,11 @@ return new class extends Migration
             $table->string('name');
             $table->string('code')->unique();
             $table->string('description')->nullable();
+            // *** ADD THIS LINE ***
+            $table->enum('normal_balance', ['debit', 'credit']); // Use enum for restricted values
             $table->boolean('is_active')->default(true);
+            // *** ADD THIS LINE ***
+            $table->boolean('is_system')->default(false); // Default to false for user-created
             $table->timestamps();
         });
     }

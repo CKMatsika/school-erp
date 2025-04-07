@@ -10,8 +10,15 @@ use App\Models\Accounting\Journal;
 use App\Models\Accounting\JournalEntry;
 use App\Models\Accounting\Payment;
 use App\Models\Accounting\PaymentMethod;
+use App\Models\Accounting\AccountType; // Needed for AR account helper
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;   // For logging errors
+use Illuminate\Support\Facades\Mail;  // For optional email
+use App\Mail\PaymentConfirmationMail; // Assuming you created this
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
+use Barryvdh\DomPDF\Facade\Pdf;     // For PDF Generation <-- ADDED THIS USE STATEMENT
 
 class PaymentsController extends Controller
 {
@@ -20,8 +27,16 @@ class PaymentsController extends Controller
      */
     public function index()
     {
+        // Filter by school if applicable and eager load relationships
+        $school_id = Auth::user()?->school_id;
         $payments = Payment::with(['contact', 'invoice', 'paymentMethod'])
-            ->orderBy('created_at', 'desc')->get();
+            ->when($school_id, function ($query, $school_id) {
+                return $query->where('school_id', $school_id);
+            })
+            ->orderBy('payment_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get(); // Consider pagination for large sets: ->paginate(20);
+
         return view('accounting.payments.index', compact('payments'));
     }
 
@@ -30,43 +45,84 @@ class PaymentsController extends Controller
      */
     public function create(Request $request)
     {
-        $contacts = Contact::where('is_active', true)->get();
-        $paymentMethods = PaymentMethod::where('is_active', true)->get();
+        // This method remains unchanged from your last version
+        $school_id = Auth::user()?->school_id;
+
+        $contacts = Contact::where('is_active', true)
+            ->when($school_id, function ($query, $school_id) {
+                return $query->where('school_id', $school_id);
+            })
+            ->orderBy('name')->get();
+
+        $paymentMethods = PaymentMethod::where('is_active', true)
+            ->orderBy('name')->get();
+
         $bankAccounts = ChartOfAccount::where('is_bank_account', true)
             ->where('is_active', true)
-            ->get();
-        
-        // If invoice_id is provided, pre-select that invoice
+            ->when($school_id, function ($query, $school_id) {
+                return $query->where('school_id', $school_id);
+            })
+            ->orderBy('name')->get();
+
         $selectedInvoice = null;
-        $contactInvoices = [];
-        
+        $contactInvoices = collect(); // Use empty collection
+
         if ($request->has('invoice_id')) {
-            $selectedInvoice = Invoice::findOrFail($request->invoice_id);
-            $contactInvoices = [$selectedInvoice];
+            $selectedInvoice = Invoice::with('contact')
+                                ->when($school_id, function ($query, $school_id) {
+                                    return $query->where('school_id', $school_id);
+                                })
+                                ->find($request->invoice_id);
+
+            if ($selectedInvoice?->contact_id) {
+                 $contactInvoices = Invoice::where('contact_id', $selectedInvoice->contact_id)
+                                        ->whereIn('status', ['sent', 'partial', 'overdue'])
+                                        ->when($school_id, function ($query, $school_id) { // Filter these too
+                                            return $query->where('school_id', $school_id);
+                                        })
+                                        ->orderBy('due_date')
+                                        ->get();
+            }
         }
-        
+
+        // Ensure the view name here matches your actual file path
         return view('accounting.payments.create', compact(
-            'contacts', 
-            'paymentMethods', 
-            'bankAccounts', 
+            'contacts',
+            'paymentMethods',
+            'bankAccounts',
             'selectedInvoice',
             'contactInvoices'
         ));
     }
 
     /**
-     * Get invoices for a specific contact (AJAX)
+     * Get outstanding invoices for a specific contact (AJAX)
      */
     public function getContactInvoices(Request $request)
     {
-        $request->validate([
-            'contact_id' => 'required|exists:accounting_contacts,id'
+        // This method remains unchanged from your last version
+        $validated = $request->validate([
+            'contact_id' => 'required|integer|exists:accounting_contacts,id'
         ]);
-        
-        $invoices = Invoice::where('contact_id', $request->contact_id)
-            ->whereIn('status', ['sent', 'partial'])
-            ->get();
-            
+        $school_id = Auth::user()?->school_id;
+        $contactId = $validated['contact_id'];
+
+        if ($school_id) {
+            $contactExists = Contact::where('id', $contactId)->where('school_id', $school_id)->exists();
+            if (!$contactExists) return response()->json(['error' => 'Contact not found or access denied.'], 403);
+        }
+
+        $invoices = Invoice::where('contact_id', $contactId)
+            ->whereIn('status', ['sent', 'partial', 'overdue'])
+            ->when($school_id, fn($q, $id) => $q->where('school_id', $id))
+            ->select('id', 'invoice_number', 'total', 'amount_paid', 'due_date')
+            ->orderBy('due_date')
+            ->get()
+            ->map(function($invoice) { // Calculate balance server-side
+                $invoice->balance_due = max(0, $invoice->total - $invoice->amount_paid);
+                return $invoice;
+            });
+
         return response()->json($invoices);
     }
 
@@ -75,75 +131,80 @@ class PaymentsController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
+        // --- Start of store method (mostly unchanged) ---
+        $validatedData = $request->validate([
             'contact_id' => 'required|exists:accounting_contacts,id',
             'invoice_id' => 'nullable|exists:invoices,id',
             'payment_method_id' => 'required|exists:payment_methods,id',
             'account_id' => 'required|exists:chart_of_accounts,id',
             'payment_date' => 'required|date',
             'amount' => 'required|numeric|min:0.01',
-            'reference' => 'nullable|string',
+            'reference' => 'nullable|string|max:255',
             'notes' => 'nullable|string',
+            'send_confirmation' => 'nullable|boolean',
         ]);
 
-        // Get school ID if available
-        $schoolId = null;
-        if (auth()->user()->school) {
-            $schoolId = auth()->user()->school->id;
+        $schoolId = Auth::user()?->school_id;
+
+        $bankAccount = ChartOfAccount::where('id', $validatedData['account_id'])->where('is_bank_account', true)->when($schoolId, fn($q, $id) => $q->where('school_id', $id))->first();
+        if (!$bankAccount) return redirect()->back()->withInput()->with('error', 'Invalid deposit account selected.');
+        if ($validatedData['invoice_id']) {
+             $invoiceValid = Invoice::where('id', $validatedData['invoice_id'])->where('contact_id', $validatedData['contact_id'])->when($schoolId, fn($q, $id) => $q->where('school_id', $id))->exists();
+             if (!$invoiceValid) return redirect()->back()->withInput()->with('error', 'Selected invoice does not match the selected contact.');
         }
 
-        // Generate payment number
-        $paymentNumber = 'PMT-' . date('Ymd') . '-' . Payment::count() + 1;
+        $prefix = 'PMT-' . date('Ymd') . '-';
+        $lastPaymentNum = Payment::where('payment_number', 'LIKE', $prefix . '%')->when($schoolId, fn($q, $id) => $q->where('school_id', $id))->orderBy('payment_number', 'desc')->value('payment_number');
+        $nextNum = $lastPaymentNum ? (intval(substr($lastPaymentNum, -4)) + 1) : 1;
+        $paymentNumber = $prefix . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
 
-        // Start a database transaction
         DB::beginTransaction();
-
         try {
-            // Create the payment
-            $payment = Payment::create([
-                'school_id' => $schoolId,
-                'contact_id' => $request->contact_id,
-                'invoice_id' => $request->invoice_id,
-                'payment_number' => $paymentNumber,
-                'payment_method_id' => $request->payment_method_id,
-                'reference' => $request->reference,
-                'payment_date' => $request->payment_date,
-                'amount' => $request->amount,
-                'notes' => $request->notes,
-                'status' => 'completed', // Default status
-                'account_id' => $request->account_id,
-                'is_pos_transaction' => false,
-                'created_by' => auth()->id(),
-            ]);
+            $paymentData = $validatedData;
+            $paymentData['school_id'] = $schoolId;
+            $paymentData['payment_number'] = $paymentNumber;
+            $paymentData['status'] = 'completed';
+            $paymentData['is_pos_transaction'] = false;
+            $paymentData['created_by'] = auth()->id();
 
-            // If payment is linked to an invoice, update the invoice
-            if ($request->invoice_id) {
-                $invoice = Invoice::find($request->invoice_id);
-                $invoice->amount_paid += $request->amount;
-                
-                if ($invoice->amount_paid >= $invoice->total) {
-                    $invoice->status = 'paid';
+            $payment = Payment::create($paymentData);
+
+            if ($payment->invoice_id) {
+                $invoice = Invoice::find($payment->invoice_id);
+                if ($invoice) {
+                    $invoice->amount_paid = ($invoice->amount_paid ?? 0) + $payment->amount;
+                    $invoice->status = (($invoice->total - $invoice->amount_paid) < 0.001) ? 'paid' : 'partial';
+                    $invoice->save();
                 } else {
-                    $invoice->status = 'partial';
+                     throw new \Exception("Invoice with ID {$payment->invoice_id} not found.");
                 }
-                
-                $invoice->save();
             }
 
-            // Create the journal entry for this payment
             $this->createJournalForPayment($payment);
-
-            // Check if we need to send a payment confirmation
-            if ($request->has('send_confirmation') && $payment->contact->email) {
-                // Will implement email functionality later
-            }
 
             DB::commit();
 
-            return redirect()->route('accounting.payments.index')
-                ->with('success', 'Payment recorded successfully.');
+            $emailSent = false;
+            if ($request->boolean('send_confirmation') && $payment->contact?->email) {
+                 try {
+                    Mail::to($payment->contact->email)->send(new PaymentConfirmationMail($payment));
+                    $emailSent = true;
+                } catch (\Exception $mailException) {
+                    Log::error("Failed to send payment confirmation email for Payment ID {$payment->id}: " . $mailException->getMessage());
+                }
+            }
+
+            // ***** START OF CHANGE FOR OPTION A *****
+            // Redirect to the new download receipt route instead of the index
+            return redirect()->route('accounting.payments.download-receipt', $payment)
+                ->with('success', 'Payment recorded successfully.' . ($emailSent ? ' Confirmation email sent.' : ''))
+                ->with('warning_email', !$emailSent && $request->boolean('send_confirmation') ? 'Failed to send confirmation email.' : null);
+            // ***** END OF CHANGE FOR OPTION A *****
+
+
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error("Error recording payment: " . $e->getMessage() . "\n" . $e->getTraceAsString());
             return redirect()->back()
                 ->with('error', 'Error recording payment: ' . $e->getMessage())
                 ->withInput();
@@ -155,7 +216,9 @@ class PaymentsController extends Controller
      */
     public function show(Payment $payment)
     {
-        $payment->load(['contact', 'invoice', 'paymentMethod', 'account', 'creator']);
+        // This method remains unchanged from your last version
+        $payment->load(['contact', 'invoice', 'paymentMethod', 'account', 'creator', 'journal.entries']);
+        // Ensure view name is correct
         return view('accounting.payments.show', compact('payment'));
     }
 
@@ -164,123 +227,82 @@ class PaymentsController extends Controller
      */
     public function edit(Payment $payment)
     {
+         // This method remains unchanged from your last version
         if ($payment->status !== 'pending') {
             return redirect()->route('accounting.payments.show', $payment)
                 ->with('error', 'Only pending payments can be edited.');
         }
-
         $payment->load(['contact', 'invoice', 'paymentMethod', 'account']);
-        
-        $contacts = Contact::where('is_active', true)->get();
-        $paymentMethods = PaymentMethod::where('is_active', true)->get();
-        $bankAccounts = ChartOfAccount::where('is_bank_account', true)
-            ->where('is_active', true)
-            ->get();
-            
-        if ($payment->contact) {
+        $school_id = Auth::user()?->school_id;
+        $contacts = Contact::where('is_active', true)->when($school_id, fn($q, $id) => $q->where('school_id', $id))->orderBy('name')->get();
+        $paymentMethods = PaymentMethod::where('is_active', true)->orderBy('name')->get();
+        $bankAccounts = ChartOfAccount::where('is_bank_account', true)->where('is_active', true)->when($school_id, fn($q, $id) => $q->where('school_id', $id))->orderBy('name')->get();
+        $contactInvoices = collect();
+        if ($payment->contact_id) {
             $contactInvoices = Invoice::where('contact_id', $payment->contact_id)
-                ->whereIn('status', ['sent', 'partial'])
+                ->where(function($query) use ($payment) {
+                     $query->whereIn('status', ['sent', 'partial', 'overdue'])->orWhere('id', $payment->invoice_id);
+                })
+                ->when($school_id, fn($q, $id) => $q->where('school_id', $id))
+                ->orderBy('due_date')
                 ->get();
-        } else {
-            $contactInvoices = [];
         }
-        
-        return view('accounting.payments.edit', compact(
-            'payment',
-            'contacts', 
-            'paymentMethods', 
-            'bankAccounts', 
-            'contactInvoices'
-        ));
+        $selectedInvoice = $payment->invoice;
+        // Ensure view name is correct
+        return view('accounting.payments.edit', compact('payment', 'contacts', 'paymentMethods', 'bankAccounts', 'contactInvoices', 'selectedInvoice'));
     }
+
 
     /**
      * Update the specified resource in storage.
      */
     public function update(Request $request, Payment $payment)
     {
+        // This method remains unchanged from your last version
         if ($payment->status !== 'pending') {
             return redirect()->route('accounting.payments.show', $payment)
                 ->with('error', 'Only pending payments can be edited.');
         }
-
-        $request->validate([
-            'contact_id' => 'required|exists:accounting_contacts,id',
-            'invoice_id' => 'nullable|exists:invoices,id',
-            'payment_method_id' => 'required|exists:payment_methods,id',
-            'account_id' => 'required|exists:chart_of_accounts,id',
-            'payment_date' => 'required|date',
-            'amount' => 'required|numeric|min:0.01',
-            'reference' => 'nullable|string',
-            'notes' => 'nullable|string',
-            'status' => 'required|in:pending,completed,failed',
+        $validatedData = $request->validate([ /* ... validation rules ... */
+             'contact_id' => 'required|exists:accounting_contacts,id', 'invoice_id' => 'nullable|exists:invoices,id',
+             'payment_method_id' => 'required|exists:payment_methods,id', 'account_id' => 'required|exists:chart_of_accounts,id',
+             'payment_date' => 'required|date', 'amount' => 'required|numeric|min:0.01',
+             'reference' => 'nullable|string|max:255', 'notes' => 'nullable|string', 'status' => 'required|in:pending,completed,failed',
         ]);
-
-        // Start a database transaction
+        $schoolId = Auth::user()?->school_id;
+        // ... additional validation ...
         DB::beginTransaction();
-
         try {
-            // If the payment was previously linked to an invoice, restore the original amount
-            if ($payment->invoice_id) {
-                $oldInvoice = Invoice::find($payment->invoice_id);
-                $oldInvoice->amount_paid -= $payment->amount;
-                
-                if ($oldInvoice->amount_paid <= 0) {
-                    $oldInvoice->amount_paid = 0;
-                    $oldInvoice->status = 'sent';
-                } elseif ($oldInvoice->amount_paid < $oldInvoice->total) {
-                    $oldInvoice->status = 'partial';
+            $originalInvoiceId = $payment->invoice_id; $originalAmount = $payment->amount; $originalStatus = $payment->status;
+            $payment->update($validatedData);
+            // ... reverse old invoice ...
+            if ($originalInvoiceId && $originalStatus === 'completed') {
+                $oldInvoice = Invoice::find($originalInvoiceId);
+                if ($oldInvoice) {
+                    $oldInvoice->amount_paid = max(0, $oldInvoice->amount_paid - $originalAmount);
+                    if (($oldInvoice->total - $oldInvoice->amount_paid) < 0.001) { $oldInvoice->status = 'paid'; }
+                    elseif ($oldInvoice->amount_paid > 0) { $oldInvoice->status = 'partial'; }
+                    else { $oldInvoice->status = 'sent'; }
+                    $oldInvoice->save();
                 }
-                
-                $oldInvoice->save();
-            }
-
-            // Update the payment
-            $payment->update([
-                'contact_id' => $request->contact_id,
-                'invoice_id' => $request->invoice_id,
-                'payment_method_id' => $request->payment_method_id,
-                'reference' => $request->reference,
-                'payment_date' => $request->payment_date,
-                'amount' => $request->amount,
-                'notes' => $request->notes,
-                'status' => $request->status,
-                'account_id' => $request->account_id,
-            ]);
-
-            // If the payment is now completed and linked to an invoice, update the invoice
-            if ($request->status === 'completed' && $request->invoice_id) {
-                $invoice = Invoice::find($request->invoice_id);
-                $invoice->amount_paid += $request->amount;
-                
-                if ($invoice->amount_paid >= $invoice->total) {
-                    $invoice->status = 'paid';
-                } else {
-                    $invoice->status = 'partial';
-                }
-                
-                $invoice->save();
-            }
-
-            // Update the journal entry if the payment is completed
-            if ($request->status === 'completed') {
-                $this->createJournalForPayment($payment);
-            } else if ($payment->journal) {
-                // If payment is not completed, delete any existing journal
-                $payment->journal->entries()->delete();
-                $payment->journal->delete();
-            }
+             }
+            // ... apply new invoice ...
+             if ($payment->invoice_id && $payment->status === 'completed') {
+                $newInvoice = Invoice::find($payment->invoice_id);
+                 if ($newInvoice) {
+                     $newInvoice->amount_paid = ($newInvoice->amount_paid ?? 0) + $payment->amount;
+                    if (($newInvoice->total - $newInvoice->amount_paid) < 0.001) { $newInvoice->status = 'paid'; }
+                    else { $newInvoice->status = 'partial'; }
+                    $newInvoice->save();
+                 } else { throw new \Exception("Newly associated invoice ID {$payment->invoice_id} not found."); }
+              }
+            // ... Update Journal Entry ...
+             if ($payment->journal) { $payment->journal->entries()->delete(); $payment->journal->delete(); $payment->journal_id = null; }
+             if ($payment->status === 'completed') { $this->createJournalForPayment($payment); } else { $payment->saveQuietly(); }
 
             DB::commit();
-
-            return redirect()->route('accounting.payments.show', $payment)
-                ->with('success', 'Payment updated successfully.');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->back()
-                ->with('error', 'Error updating payment: ' . $e->getMessage())
-                ->withInput();
-        }
+            return redirect()->route('accounting.payments.show', $payment)->with('success', 'Payment updated successfully.');
+        } catch (\Exception $e) { DB::rollBack(); Log::error("Error updating payment {$payment->id}: " . $e->getMessage()); return redirect()->back()->withInput()->with('error', 'Error updating payment: ' . $e->getMessage()); }
     }
 
     /**
@@ -288,87 +310,136 @@ class PaymentsController extends Controller
      */
     public function destroy(Payment $payment)
     {
+        // This method remains unchanged from your last version
         if ($payment->status === 'completed') {
             return redirect()->route('accounting.payments.index')
-                ->with('error', 'Completed payments cannot be deleted. Please void the payment instead.');
+                ->with('error', 'Completed payments cannot be deleted.');
         }
-
-        // Start a database transaction
         DB::beginTransaction();
+        try {
+            $paymentNumber = $payment->payment_number;
+            if ($payment->journal) { $payment->journal->entries()->delete(); $payment->journal->delete(); }
+            $payment->delete();
+            DB::commit();
+            return redirect()->route('accounting.payments.index')->with('success', "Payment #{$paymentNumber} deleted successfully.");
+        } catch (\Exception $e) { DB::rollBack(); Log::error("Error deleting payment {$payment->id}: " . $e->getMessage()); return redirect()->route('accounting.payments.index')->with('error', 'Error deleting payment: ' . $e->getMessage()); }
+    }
+
+    /**
+     * Generate and download a PDF receipt for the payment.
+     * ***** NEW METHOD ADDED *****
+     */
+    public function downloadReceipt(Payment $payment)
+    {
+        // TODO: Authorization check
+        // $this->authorize('view', $payment);
+
+        $payment->loadMissing(['contact', 'invoice', 'paymentMethod', 'account']); // Load data
 
         try {
-            // If the payment has a journal, delete it
-            if ($payment->journal) {
-                $payment->journal->entries()->delete();
-                $payment->journal->delete();
-            }
-            
-            // Delete the payment
-            $payment->delete();
+            $data = ['payment' => $payment];
+            // Ensure this view exists: resources/views/accounting/payments/receipt_pdf.blade.php
+            $pdf = Pdf::loadView('accounting.payments.receipt_pdf', $data);
+            $filename = 'payment-receipt-' . preg_replace('/[^A-Za-z0-9\-]/', '', $payment->payment_number) . '.pdf'; // Sanitize
 
-            DB::commit();
+            return $pdf->download($filename);
 
-            return redirect()->route('accounting.payments.index')
-                ->with('success', 'Payment deleted successfully.');
         } catch (\Exception $e) {
-            DB::rollBack();
-            return redirect()->route('accounting.payments.index')
-                ->with('error', 'Error deleting payment: ' . $e->getMessage());
+            Log::error("Failed to generate PDF receipt for Payment {$payment->id}: " . $e->getMessage());
+            // Fallback redirect if PDF generation fails
+            return redirect()->route('accounting.payments.show', $payment) // Or payments.index
+                       ->with('error', 'Could not generate PDF receipt. Please try again later.');
         }
     }
 
     /**
-     * Print the payment receipt.
+     * Show a printer-friendly HTML receipt (Original receipt method).
      */
     public function receipt(Payment $payment)
     {
+        // This method remains unchanged from your last version
+        // TODO: Add authorization check
         $payment->load(['contact', 'invoice', 'paymentMethod', 'account', 'creator']);
+        // Ensure view name is correct
         return view('accounting.payments.receipt', compact('payment'));
     }
 
+    // --- HELPER METHODS ---
+
     /**
-     * Create a journal entry for a payment.
+     * Create or update the journal entry for a payment.
      */
     private function createJournalForPayment(Payment $payment)
     {
-        // If there's already a journal for this payment, delete it
-        if ($payment->journal) {
-            $payment->journal->entries()->delete();
-            $payment->journal->delete();
-        }
-
-        // Create a new journal entry
-        $journal = Journal::create([
-            'school_id' => $payment->school_id,
-            'reference' => 'Payment #' . $payment->payment_number,
-            'journal_date' => $payment->payment_date,
-            'description' => 'Payment received from ' . $payment->contact->name,
-            'status' => 'posted',
-            'created_by' => auth()->id(),
-            'document_type' => 'payment',
-            'document_id' => $payment->id,
+        // This method remains unchanged from your last version
+        $payment->loadMissing(['contact', 'account', 'invoice']);
+        if ($payment->journal) { $payment->journal->entries()->delete(); $payment->journal->delete(); $payment->journal_id = null; }
+        $arAccount = $this->findOrCreateArAccount($payment->school_id);
+        $bankOrCashAccount = $payment->account;
+        if (!$bankOrCashAccount) { Log::critical("Bank/Cash account ID {$payment->account_id} not found for Payment ID {$payment->id}."); throw new \Exception("Deposit account not found for payment."); }
+        $journal = Journal::create([ /* ... journal details ... */
+            'school_id' => $payment->school_id, 'reference' => 'Payment #' . $payment->payment_number . ($payment->invoice ? ' (Inv #' . $payment->invoice->invoice_number . ')' : ''),
+            'journal_date' => $payment->payment_date, 'description' => 'Payment received from ' . ($payment->contact->name ?? 'Unknown Contact'),
+            'status' => 'posted', 'created_by' => $payment->created_by ?? auth()->id(), 'document_type' => 'payment', 'document_id' => $payment->id,
         ]);
-
-        // Debit Bank Account
-        JournalEntry::create([
-            'journal_id' => $journal->id,
-            'account_id' => $payment->account_id,
-            'debit' => $payment->amount,
-            'credit' => 0,
-            'description' => 'Payment received',
-            'contact_id' => $payment->contact_id,
-        ]);
-
-        // Credit Accounts Receivable
-        JournalEntry::create([
-            'journal_id' => $journal->id,
-            'account_id' => ChartOfAccount::where('account_code', '1100')->first()->id, // Accounts Receivable
-            'debit' => 0,
-            'credit' => $payment->amount,
-            'description' => 'Payment received',
-            'contact_id' => $payment->contact_id,
-        ]);
-
+        $totalDebit = 0; $totalCredit = 0;
+        JournalEntry::create([ /* ... Debit Bank/Cash ... */
+             'journal_id' => $journal->id, 'account_id' => $bankOrCashAccount->id, 'debit' => $payment->amount, 'credit' => 0,
+            'description' => 'Payment received from ' . ($payment->contact->name ?? 'Unknown Contact'), 'contact_id' => $payment->contact_id,
+        ]); $totalDebit += $payment->amount;
+        JournalEntry::create([ /* ... Credit AR ... */
+             'journal_id' => $journal->id, 'account_id' => $arAccount->id, 'debit' => 0, 'credit' => $payment->amount,
+            'description' => 'Payment applied to balance owing by ' . ($payment->contact->name ?? 'Unknown Contact'), 'contact_id' => $payment->contact_id,
+        ]); $totalCredit += $payment->amount;
+        if (abs($totalDebit - $totalCredit) > 0.001) { Log::error("Journal unbalanced for Payment {$payment->id}."); throw new \Exception("Journal entries unbalanced for Payment #{$payment->payment_number}."); }
+        $payment->journal_id = $journal->id; $payment->saveQuietly();
         return $journal;
     }
-}
+
+    /**
+     * Helper to find or create the Accounts Receivable system account.
+     */
+     private function findOrCreateArAccount($schoolId)
+    {
+        $arCode = config('accounting.ar_account_code', '1100');
+
+        // Query WITHOUT school_id filter directly on chart_of_accounts
+        $arAccount = ChartOfAccount::where(function($query) use ($arCode) {
+                // Prioritize a specific boolean flag if you add it via migration
+                // $query->where('is_system_ar', true) // Check this flag first if it exists
+                //       ->orWhere('account_code', $arCode);
+                 $query->where('account_code', $arCode); // Using code only for now
+            })
+            ->whereHas('accountType', fn($q) => $q->where('code', 'ASSET')) // Ensure it's an Asset
+            ->first();
+
+        if ($arAccount) return $arAccount;
+
+        // Fallback: Search by name WITHOUT school_id filter
+         $arAccount = ChartOfAccount::where('name', 'LIKE', 'Accounts Receivable%')
+             ->whereHas('accountType', fn($q) => $q->where('code', 'ASSET'))
+            ->first();
+
+         if ($arAccount) return $arAccount;
+
+         // If still not found, create it.
+         Log::warning("Accounts Receivable account not found. Creating default global AR account (Code: {$arCode}).");
+         $assetType = AccountType::where('code', 'ASSET')->first();
+         if (!$assetType) {
+            throw new \Exception('Asset Account Type not found. Cannot create AR account.');
+         }
+
+         // Create WITHOUT school_id unless the table actually has that column
+         return ChartOfAccount::create([
+            // 'school_id' => $schoolId, // REMOVED based on previous error
+            'account_type_id' => $assetType->id,
+            'account_code' => $arCode,
+            'name' => 'Accounts Receivable',
+            'description' => 'Default Accounts Receivable (System Created)',
+            'is_active' => true,
+            'is_system' => true,
+            // 'is_system_ar' => true,
+        ]);
+    } // <-- *** THIS IS THE MISSING BRACE ***
+
+} // End of PaymentsController class

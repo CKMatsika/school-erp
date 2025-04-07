@@ -3,108 +3,177 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
-use App\Models\Accounting\Invoice;
-use App\Models\Accounting\FeeStructure;
-use App\Models\Student;
-use App\Models\SchoolClass;
 use Illuminate\Http\Request;
+use App\Models\Accounting\FeeStructure;
+// *** Use the consolidated SchoolClass model ***
+use App\Models\Accounting\SchoolClass; // <-- CORRECTED MODEL
+use App\Models\Student;
+use App\Models\Accounting\Invoice;
+use App\Models\Accounting\InvoiceItem;
+use App\Models\Accounting\ChartOfAccount; // Needed if fee items link here
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class BulkInvoiceController extends Controller
 {
     public function index()
     {
-        $classes = SchoolClass::where('school_id', auth()->user()->school_id)->get();
-        $feeStructures = FeeStructure::where('school_id', auth()->user()->school_id)
+        $school_id = Auth::user()?->school_id;
+
+        // *** Use the correct model name here ***
+        $classes = SchoolClass::when($school_id, fn($q, $id)=>$q->where('school_id', $id))
+                              ->where('is_active', true)
+                              ->orderBy('name')
+                              ->get();
+
+        $feeStructures = FeeStructure::when($school_id, fn($q, $id)=>$q->where('school_id', $id))
             ->where('is_active', true)
+            ->orderBy('name')
             ->get();
-        
+
+        // Ensure the view name is correct
         return view('accounting.bulk-invoice.index', compact('classes', 'feeStructures'));
     }
 
     public function generate(Request $request)
     {
-        $request->validate([
-            'class_id' => 'required|exists:school_classes,id',
+        $validated = $request->validate([
+            // *** Use the correct table name here ('timetable_school_classes') ***
+            'class_id' => 'required|exists:timetable_school_classes,id',
             'fee_structure_id' => 'required|exists:fee_structures,id',
             'issue_date' => 'required|date',
             'due_date' => 'required|date|after_or_equal:issue_date',
-            'term' => 'required|string',
-            'academic_year' => 'required|string',
+            'notes' => 'nullable|string',
         ]);
-        
-        // Get all students in the class
-        $students = Student::where('class_id', $request->class_id)
-            ->where('status', 'active')
-            ->get();
-        
-        if ($students->isEmpty()) {
-            return back()->with('error', 'No active students found in the selected class.');
+
+        $school_id = Auth::user()?->school_id;
+        $classId = $validated['class_id'];
+        $feeStructureId = $validated['fee_structure_id'];
+
+        // *** Use the correct model name here ***
+        $classExists = SchoolClass::where('id', $classId)
+                                  ->when($school_id, fn($q, $id) => $q->where('school_id', $id))
+                                  ->exists();
+        $feeStructure = FeeStructure::with('items.incomeAccount')
+                                     ->when($school_id, fn($q, $id) => $q->where('school_id', $id))
+                                     ->find($feeStructureId);
+
+        if (!$classExists || !$feeStructure) {
+            return redirect()->back()->with('error', 'Invalid class or fee structure selected.');
         }
-        
-        // Get fee structure
-        $feeStructure = FeeStructure::with('items')->findOrFail($request->fee_structure_id);
-        
+
+        // Find students - Ensure 'current_class_id' is correct foreign key on Student model
+        $students = Student::where('current_class_id', $classId)
+                           ->where('is_active', true)
+                           ->when($school_id, fn($q, $id) => $q->where('school_id', $id))
+                           ->whereHas('accountingContact', function($q){
+                                $q->where('is_active', true)->where('contact_type', 'student');
+                           })
+                           ->with('accountingContact')
+                           ->get();
+
+        if ($students->isEmpty()) {
+            return redirect()->back()->with('error', 'No active students with accounting contacts found in the selected class.');
+        }
+        if ($feeStructure->items->isEmpty()) {
+             return redirect()->back()->with('error', 'Selected fee structure has no items defined.');
+        }
+
+        $invoicesCreated = 0;
+        $errors = [];
+
         DB::beginTransaction();
         try {
-            $count = 0;
             foreach ($students as $student) {
-                // Generate invoice number
-                $prefix = 'INV';
-                $year = date('Y');
-                $month = date('m');
-                $lastInvoice = Invoice::where('school_id', auth()->user()->school_id)
-                    ->where('invoice_number', 'like', "{$prefix}-{$year}{$month}%")
-                    ->orderBy('invoice_number', 'desc')
-                    ->first();
+                if (!$student->accountingContact) continue;
 
-                $nextNumber = 1;
-                if ($lastInvoice) {
-                    $parts = explode('-', $lastInvoice->invoice_number);
-                    if (count($parts) > 1) {
-                        $lastNumber = substr($parts[1], 6); // Extract number after YYYYMM
-                        $nextNumber = intval($lastNumber) + 1;
-                    }
-                }
-                
-                $invoiceNumber = $prefix . '-' . $year . $month . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);
-                
-                // Create invoice
+                 $invoiceNumber = $this->generateNextInvoiceNumber($school_id); // Use the helper
+
+                 $totalSubtotal = 0; $totalTax = 0;
+                 foreach($feeStructure->items as $item) { $totalSubtotal += $item->amount; }
+                 $totalAmount = $totalSubtotal + $totalTax; // Add tax logic if needed
+
                 $invoice = Invoice::create([
-                    'school_id' => auth()->user()->school_id,
-                    'student_id' => $student->id,
+                    'school_id' => $school_id,
+                    'contact_id' => $student->accountingContact->id,
                     'invoice_number' => $invoiceNumber,
-                    'reference' => "Fees {$request->term} {$request->academic_year}",
-                    'issue_date' => $request->issue_date,
-                    'due_date' => $request->due_date,
-                    'type' => 'student_fee',
-                    'status' => 'unpaid',
-                    'created_by' => auth()->id(),
+                    'issue_date' => $validated['issue_date'],
+                    'due_date' => $validated['due_date'],
+                    'notes' => $validated['notes'],
+                    'subtotal' => $totalSubtotal,
+                    'tax_amount' => $totalTax,
+                    'total' => $totalAmount,
+                    'amount_paid' => 0,
+                    'status' => 'draft', // Or 'sent' if creating journals immediately
+                    'type' => 'bulk_fee', // Need 'type' column added to invoices table via migration
+                    'created_by' => Auth::id(),
+                    'fee_schedule_id' => $feeStructureId, // Need 'fee_schedule_id' added to invoices table
                 ]);
-                
-                // Add fee items
-                foreach ($feeStructure->items as $item) {
-                    $invoice->items()->create([
-                        'description' => $item->description,
+
+                 foreach($feeStructure->items as $feeItem) {
+                     if (!$feeItem->incomeAccount) {
+                         Log::warning("Skipping fee item '{$feeItem->name}' for invoice {$invoice->id}: No income account linked.");
+                         continue;
+                     }
+                     InvoiceItem::create([
+                        'invoice_id' => $invoice->id,
+                        'description' => $feeItem->name,
                         'quantity' => 1,
-                        'price' => $item->amount,
-                        'tax_rate_id' => $item->tax_rate_id,
-                        'tax_amount' => $item->tax_amount ?? 0,
-                        'total' => $item->amount + ($item->tax_amount ?? 0),
+                        'unit_price' => $feeItem->amount,
+                        'subtotal' => $feeItem->amount,
+                        'tax_rate_id' => null, // Add tax logic here
+                        'tax_amount' => 0,     // Add tax logic here
+                        'account_id' => $feeItem->incomeAccount->id,
                     ]);
-                }
-                
-                $invoice->calculateTotals();
-                $invoice->createStudentDebt();
-                $count++;
+                 }
+
+                // Optional: Create Journal Entry if status is set to 'sent'
+                // if ($invoice->status === 'sent') {
+                //     try {
+                //         app(InvoicesController::class)->createJournalForInvoice($invoice); // Requires InvoicesController in 'use'
+                //     } catch (\Exception $journalError) {
+                //          Log::error("Failed to create journal for bulk invoice {$invoice->id}: ".$journalError->getMessage());
+                //          // Decide how to handle - maybe add to $errors array?
+                //     }
+                // }
+
+                $invoicesCreated++;
             }
-            
+
             DB::commit();
-            return redirect()->route('accounting.invoices.index')
-                ->with('success', "{$count} invoices created successfully.");
+
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', "Error creating invoices: {$e->getMessage()}");
+            Log::error("Error during bulk invoice generation: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+            return redirect()->back()->with('error', 'An error occurred during bulk invoice generation: ' . $e->getMessage());
         }
+
+        if ($invoicesCreated > 0) {
+             return redirect()->route('accounting.invoices.index')
+               ->with('success', "Successfully generated {$invoicesCreated} draft invoices for the selected class.");
+        } else {
+             return redirect()->back()->with('error', 'No invoices were generated. Please check student data and fee structure.');
+        }
+    }
+
+     /**
+     * Generate the next invoice number (Helper).
+     * Ensure this logic is consistent with InvoicesController or centralized.
+     */
+    private function generateNextInvoiceNumber($schoolId = null)
+    {
+        $prefix = 'INV-' . date('Ymd') . '-';
+        $query = Invoice::where('invoice_number', 'LIKE', $prefix . '%')
+                      ->when($schoolId, fn($q, $id) => $q->where('school_id', $id))
+                      ->orderBy('invoice_number', 'desc');
+        $lastInvoice = $query->first();
+        $nextNum = 1;
+        if ($lastInvoice) {
+            $parts = explode('-', $lastInvoice->invoice_number);
+            $lastNumPart = end($parts);
+            if (is_numeric($lastNumPart)) $nextNum = intval($lastNumPart) + 1;
+        }
+        return $prefix . str_pad($nextNum, 3, '0', STR_PAD_LEFT);
     }
 }
