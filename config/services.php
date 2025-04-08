@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    // ***** START: ADDED TWILIO CONFIGURATION *****
+    'twilio' => [
+        'sid' => env('TWILIO_SID'),          // Reads TWILIO_SID from .env
+        'token' => env('TWILIO_TOKEN'),      // Reads TWILIO_TOKEN from .env
+        'from' => env('TWILIO_FROM'),        // Reads TWILIO_FROM from .env (your Twilio number)
+        // If you were using a Messaging Service SID instead of a specific number, you'd use this:
+        // 'messaging_service_sid' => env('TWILIO_MESSAGING_SERVICE_SID'),
+    ],
+    // ***** END: ADDED TWILIO CONFIGURATION *****
+
 ];

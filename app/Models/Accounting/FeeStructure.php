@@ -32,6 +32,14 @@ class FeeStructure extends Model
         return $this->hasMany(FeeStructureItem::class);
     }
 
+    /**
+     * Get the academic year that this fee structure belongs to.
+     */
+    public function academicYear()
+    {
+        return $this->belongsTo(AcademicYear::class, 'academic_year', 'id');
+    }
+
     public function getTotalAmount()
     {
         return $this->items->sum('amount');

@@ -49,7 +49,7 @@
                                             {{ number_format($balance, 2) }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                            <a href="{{ route('student-ledger.show', $student->id) }}" class="text-indigo-600 hover:text-indigo-900">View Ledger</a>
+                                            <a href="{{ route('accounting.student-ledger.show', [$transaction['type'], $transaction['reference']])
                                         </td>
                                     </tr>
                                 @empty

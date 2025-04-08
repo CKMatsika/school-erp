@@ -1,7 +1,10 @@
 <?php
 
-namespace App\Models;
+namespace App\Models\Accounting;
 
+use App\Models\School;
+use App\Models\Student;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -14,6 +17,7 @@ class PaymentPlan extends Model
         'school_id',
         'student_id',
         'invoice_id',
+        'contact_id', // Added this since it's used in your controller
         'name',
         'total_amount',
         'paid_amount',
@@ -51,6 +55,11 @@ class PaymentPlan extends Model
     public function invoice()
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function contact()
+    {
+        return $this->belongsTo(Contact::class);
     }
 
     public function creator()
