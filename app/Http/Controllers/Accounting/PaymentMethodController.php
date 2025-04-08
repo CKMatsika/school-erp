@@ -43,8 +43,9 @@ class PaymentMethodController extends Controller
         $school_id = Auth::user()?->school_id;
         
         // Get bank/cash accounts for dropdown
+        // FIXED: Using account_type_id and proper filtering for bank accounts
         $accounts = ChartOfAccount::when($school_id, fn($q, $id) => $q->where('school_id', $id))
-            ->whereIn('account_type', ['asset', 'bank', 'cash'])
+            ->where('is_bank_account', true)
             ->orderBy('name')
             ->get();
             
@@ -155,8 +156,9 @@ class PaymentMethodController extends Controller
         $school_id = Auth::user()?->school_id;
         
         // Get bank/cash accounts for dropdown
+        // FIXED: Using account_type_id and proper filtering for bank accounts
         $accounts = ChartOfAccount::when($school_id, fn($q, $id) => $q->where('school_id', $id))
-            ->whereIn('account_type', ['asset', 'bank', 'cash'])
+            ->where('is_bank_account', true)
             ->orderBy('name')
             ->get();
             

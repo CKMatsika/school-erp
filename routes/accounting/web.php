@@ -17,6 +17,7 @@ use App\Http\Controllers\Accounting\NotificationsController;
 use App\Http\Controllers\Accounting\StudentLedgerController;
 use App\Http\Controllers\Accounting\BulkInvoiceController;
 use App\Http\Controllers\Accounting\BudgetController;
+use App\Http\Controllers\Accounting\CapexBudgetController; // <-- ADDED: Import the new controller
 use App\Http\Controllers\Accounting\PaymentPlanController;
 use App\Http\Controllers\Accounting\DebtorController;
 use App\Http\Controllers\Accounting\CreditorController;
@@ -26,6 +27,7 @@ use App\Http\Controllers\Accounting\AccountTypeController;
 use App\Http\Controllers\Accounting\AcademicYearController; // Controller for Academic Years
 use App\Http\Controllers\Accounting\TermController;         // Controller for Terms
 use App\Http\Controllers\Accounting\SchoolClassController;   // Controller for Classes
+use App\Http\Controllers\Accounting\PaymentMethodController; // Added based on need
 
 // --- Other Controllers ---
 use App\Http\Controllers\StudentImportController;
@@ -41,7 +43,7 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     // Chart of Accounts & Types
     Route::resource('accounts', ChartOfAccountsController::class);
     Route::resource('account-types', AccountTypeController::class);
-    Route::resource('payment-methods', \App\Http\Controllers\Accounting\PaymentMethodController::class); // Added based on need
+    Route::resource('payment-methods', PaymentMethodController::class); // Corrected namespace
 
     // Contacts
     Route::resource('contacts', ContactsController::class);
@@ -93,15 +95,25 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::post('pos/payment', [PosController::class, 'payment'])->name('pos.payment');
     Route::get('pos/z-reading', [PosController::class, 'zReading'])->name('pos.z-reading');
 
-    // Budget Management
-    Route::resource('budgets', BudgetController::class);
-    Route::get('budgets/{id}/items', [BudgetController::class, 'showItems'])->name('budgets.items');
-    Route::post('budgets/{id}/items', [BudgetController::class, 'storeItem'])->name('budgets.items.store');
-    Route::post('budgets/{id}/approve-status', [BudgetController::class, 'approveStatus'])->name('budgets.approve-status');
-    Route::get('capex-projects', [BudgetController::class, 'capexIndex'])->name('capex.index');
-    Route::get('capex-projects/create', [BudgetController::class, 'capexCreate'])->name('capex.create');
-    Route::post('capex-projects', [BudgetController::class, 'capexStore'])->name('capex.store');
-    Route::get('capex-projects/{id}', [BudgetController::class, 'capexShow'])->name('capex.show');
+    // === Budget Management ===
+    // -- Non-CAPEX Budgets --
+    Route::resource('budgets', BudgetController::class); // Keep this for operational budgets
+    Route::get('budgets/{id}/items', [BudgetController::class, 'showItems'])->name('budgets.items'); // Assuming this is for non-capex
+    Route::post('budgets/{id}/items', [BudgetController::class, 'storeItem'])->name('budgets.items.store'); // Assuming this is for non-capex
+    Route::post('budgets/{id}/approve-status', [BudgetController::class, 'approveStatus'])->name('budgets.approve-status'); // Assuming this is for non-capex
+
+    // -- CAPEX Budgets/Projects --
+    // UPDATED: Point these routes to the new CapexBudgetController and standard methods
+    Route::get('capex-projects', [CapexBudgetController::class, 'index'])->name('capex.index');
+    Route::get('capex-projects/create', [CapexBudgetController::class, 'create'])->name('capex.create');
+    Route::post('capex-projects', [CapexBudgetController::class, 'store'])->name('capex.store');
+    Route::get('capex-projects/{id}', [CapexBudgetController::class, 'show'])->name('capex.show');
+    // You might want to add edit/update/destroy routes here later for capex:
+    // Route::get('capex-projects/{capex_project}/edit', [CapexBudgetController::class, 'edit'])->name('capex.edit');
+    // Route::put('capex-projects/{capex_project}', [CapexBudgetController::class, 'update'])->name('capex.update'); // Or patch
+    // Route::delete('capex-projects/{capex_project}', [CapexBudgetController::class, 'destroy'])->name('capex.destroy');
+    // === End Budget Management ===
+
 
     // Debtors & Creditors
     Route::get('debtors', [DebtorController::class, 'index'])->name('debtors.index');

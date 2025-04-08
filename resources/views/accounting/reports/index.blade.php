@@ -1,3 +1,4 @@
+{{-- resources/views/accounting/reports/index.blade.php --}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -9,7 +10,9 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 bg-white border-b border-gray-200">
+                    {{-- The grid containing all report cards --}}
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
                         <!-- Income Statement -->
                         <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition duration-150">
                             <div class="flex items-center justify-center h-12 w-12 rounded-md bg-indigo-100 text-indigo-600 mb-4">
@@ -19,7 +22,7 @@
                             </div>
                             <h3 class="text-lg font-medium text-gray-900 mb-2">Income Statement</h3>
                             <p class="text-sm text-gray-600 mb-4">View income, expenses, and net profit for a specific period.</p>
-                            
+
                             <form action="{{ route('accounting.reports.income-statement') }}" method="GET" class="mb-4">
                                 <div class="grid grid-cols-2 gap-2">
                                     <div>
@@ -31,13 +34,13 @@
                                         <input type="date" name="end_date" id="income_end_date" value="{{ now()->endOfMonth()->format('Y-m-d') }}" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
                                     </div>
                                 </div>
-                                
+
                                 <button type="submit" class="mt-4 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                                     Generate Report
                                 </button>
                             </form>
                         </div>
-                        
+
                         <!-- Balance Sheet -->
                         <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition duration-150">
                             <div class="flex items-center justify-center h-12 w-12 rounded-md bg-green-100 text-green-600 mb-4">
@@ -47,19 +50,19 @@
                             </div>
                             <h3 class="text-lg font-medium text-gray-900 mb-2">Balance Sheet</h3>
                             <p class="text-sm text-gray-600 mb-4">View assets, liabilities, and equity as of a specific date.</p>
-                            
+
                             <form action="{{ route('accounting.reports.balance-sheet') }}" method="GET" class="mb-4">
                                 <div>
                                     <label for="balance_date" class="block text-xs font-medium text-gray-700">As of Date</label>
                                     <input type="date" name="as_of_date" id="balance_date" value="{{ now()->format('Y-m-d') }}" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
                                 </div>
-                                
+
                                 <button type="submit" class="mt-4 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
                                     Generate Report
                                 </button>
                             </form>
                         </div>
-                        
+
                         <!-- Tax Report -->
                         <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition duration-150">
                             <div class="flex items-center justify-center h-12 w-12 rounded-md bg-yellow-100 text-yellow-600 mb-4">
@@ -69,7 +72,7 @@
                             </div>
                             <h3 class="text-lg font-medium text-gray-900 mb-2">Tax Report</h3>
                             <p class="text-sm text-gray-600 mb-4">View tax collected and paid for a specific period.</p>
-                            
+
                             <form action="{{ route('accounting.reports.tax') }}" method="GET" class="mb-4">
                                 <div class="grid grid-cols-2 gap-2">
                                     <div>
@@ -81,13 +84,13 @@
                                         <input type="date" name="end_date" id="tax_end_date" value="{{ now()->endOfYear()->format('Y-m-d') }}" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
                                     </div>
                                 </div>
-                                
+
                                 <button type="submit" class="mt-4 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-yellow-600 hover:bg-yellow-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-yellow-500">
                                     Generate Report
                                 </button>
                             </form>
                         </div>
-                        
+
                         <!-- Student Balances -->
                         <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition duration-150">
                             <div class="flex items-center justify-center h-12 w-12 rounded-md bg-blue-100 text-blue-600 mb-4">
@@ -97,19 +100,60 @@
                             </div>
                             <h3 class="text-lg font-medium text-gray-900 mb-2">Student Balances</h3>
                             <p class="text-sm text-gray-600 mb-4">View outstanding balances for students as of a specific date.</p>
-                            
+
                             <form action="{{ route('accounting.reports.student-balances') }}" method="GET" class="mb-4">
                                 <div>
                                     <label for="student_balance_date" class="block text-xs font-medium text-gray-700">As of Date</label>
                                     <input type="date" name="as_of_date" id="student_balance_date" value="{{ now()->format('Y-m-d') }}" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
                                 </div>
-                                
+
                                 <button type="submit" class="mt-4 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
                                     Generate Report
                                 </button>
                             </form>
                         </div>
-                    </div>
+
+                        {{-- ========================================== --}}
+                        {{-- == NEW CARD ADDED BELOW == --}}
+                        {{-- ========================================== --}}
+
+                        <!-- Budget vs Actual -->
+                        <div class="bg-white p-6 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition duration-150">
+                            <div class="flex items-center justify-center h-12 w-12 rounded-md bg-purple-100 text-purple-600 mb-4"> {{-- Changed color --}}
+                                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"> {{-- Example icon --}}
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2z"></path>
+                                </svg>
+                            </div>
+                            <h3 class="text-lg font-medium text-gray-900 mb-2">Budget vs Actual</h3>
+                            <p class="text-sm text-gray-600 mb-4">Compare budgeted amounts against actual expenses.</p>
+
+                            <form action="{{ route('accounting.reports.budget-vs-actual') }}" method="GET" class="mb-4">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div>
+                                        <label for="bva_start_date" class="block text-xs font-medium text-gray-700">Start Date</label>
+                                        <input type="date" name="start_date" id="bva_start_date" value="{{ now()->startOfMonth()->format('Y-m-d') }}" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                                    </div>
+                                    <div>
+                                        <label for="bva_end_date" class="block text-xs font-medium text-gray-700">End Date</label>
+                                        <input type="date" name="end_date" id="bva_end_date" value="{{ now()->endOfMonth()->format('Y-m-d') }}" class="mt-1 focus:ring-indigo-500 focus:border-indigo-500 block w-full shadow-sm sm:text-sm border-gray-300 rounded-md">
+                                    </div>
+                                </div>
+                                {{-- Optional Budget Selector --}}
+                                {{-- <div>
+                                    <label for="bva_budget_id" class="block text-xs font-medium text-gray-700 mt-2">Budget (Optional)</label>
+                                    <select name="budget_id" id="bva_budget_id" class="mt-1 block w-full focus:ring-indigo-500 focus:border-indigo-500 shadow-sm sm:text-sm border-gray-300 rounded-md">
+                                        <option value="">All Budgets</option>
+                                        {{-- Populate options dynamically if needed --}}
+                                    {{-- </select>
+                                </div> --}}
+
+                                <button type="submit" class="mt-4 w-full inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"> {{-- Changed color --}}
+                                    Generate Report
+                                </button>
+                            </form>
+                        </div>
+
+                    </div> {{-- End of grid --}}
                 </div>
             </div>
         </div>
