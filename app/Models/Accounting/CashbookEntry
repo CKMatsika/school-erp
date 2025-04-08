@@ -1,0 +1,101 @@
+<?php
+
+namespace App\Models\Accounting;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use App\Models\User;
+
+class CashbookEntry extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'bank_account_id',
+        'transaction_date',
+        'amount',
+        'is_debit',
+        'reference_number',
+        'description',
+        'type',
+        'payment_id',
+        'invoice_id',
+        'journal_id',
+        'bank_transfer_id',
+        'is_reconciled',
+        'created_by',
+        'notes',
+    ];
+
+    protected $casts = [
+        'transaction_date' => 'date',
+        'amount' => 'decimal:2',
+        'is_debit' => 'boolean',
+        'is_reconciled' => 'boolean',
+    ];
+
+    /**
+     * Get the bank account associated with this entry.
+     */
+    public function bankAccount(): BelongsTo
+    {
+        return $this->belongsTo(BankAccount::class);
+    }
+
+    /**
+     * Get the payment associated with this entry, if any.
+     */
+    public function payment(): BelongsTo
+    {
+        return $this->belongsTo(Payment::class);
+    }
+
+    /**
+     * Get the invoice associated with this entry, if any.
+     */
+    public function invoice(): BelongsTo
+    {
+        return $this->belongsTo(Invoice::class);
+    }
+
+    /**
+     * Get the journal associated with this entry, if any.
+     */
+    public function journal(): BelongsTo
+    {
+        return $this->belongsTo(Journal::class);
+    }
+
+    /**
+     * Get the bank transfer associated with this entry, if any.
+     */
+    public function bankTransfer(): BelongsTo
+    {
+        return $this->belongsTo(BankTransfer::class);
+    }
+
+    /**
+     * Get the user who created this entry.
+     */
+    public function createdBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+    
+    /**
+     * Get the signed amount (positive for credit, negative for debit).
+     */
+    public function getSignedAmountAttribute()
+    {
+        return $this->is_debit ? -$this->amount : $this->amount;
+    }
+    
+    /**
+     * Get the formatted type.
+     */
+    public function getFormattedTypeAttribute()
+    {
+        return ucfirst($this->type);
+    }
+}

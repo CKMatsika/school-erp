@@ -75,13 +75,76 @@
                 </div>
             </div>
 
-            {{-- ===== NEW CONFIGURATION & SETUP SECTION ===== --}}
+            <!-- Procurement & Inventory Management -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6 bg-white border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Procurement & Inventory</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        <!-- Procurement Dashboard -->
+                        <a href="{{ route('accounting.procurement.index') }}" class="bg-amber-50 p-4 rounded-lg border border-amber-200 text-center hover:bg-amber-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-amber-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
+                            <span class="text-sm font-medium text-amber-700">Procurement</span>
+                        </a>
+                        <!-- Purchase Requests -->
+                        <a href="{{ route('accounting.purchase-requests.index') }}" class="bg-pink-50 p-4 rounded-lg border border-pink-200 text-center hover:bg-pink-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-pink-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span class="text-sm font-medium text-pink-700">Purchase Requests</span>
+                        </a>
+                        <!-- Purchase Orders -->
+                        <a href="{{ route('accounting.purchase-orders.index') }}" class="bg-purple-50 p-4 rounded-lg border border-purple-200 text-center hover:bg-purple-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-purple-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span class="text-sm font-medium text-purple-700">Purchase Orders</span>
+                        </a>
+                        <!-- Goods Receipt -->
+                        <a href="{{ route('accounting.goods-receipts.index') }}" class="bg-green-50 p-4 rounded-lg border border-green-200 text-center hover:bg-green-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-green-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke
+                            <svg class="w-6 h-6 text-green-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                            <span class="text-sm font-medium text-green-700">Goods Receipt</span>
+                        </a>
+                        <!-- Inventory Items -->
+                        <a href="{{ route('accounting.inventory-items.index') }}" class="bg-blue-50 p-4 rounded-lg border border-blue-200 text-center hover:bg-blue-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-blue-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
+                            <span class="text-sm font-medium text-blue-700">Inventory</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Banking & Cash Management -->
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
+                <div class="p-6 bg-white border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Banking & Cash Management</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                        <!-- Cashbook -->
+                        <a href="{{ route('accounting.cashbook.index') }}" class="bg-emerald-50 p-4 rounded-lg border border-emerald-200 text-center hover:bg-emerald-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-emerald-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                            <span class="text-sm font-medium text-emerald-700">Cashbook</span>
+                        </a>
+                        <!-- Bank Reconciliation -->
+                        <a href="{{ route('accounting.bank-reconciliation.index') }}" class="bg-blue-50 p-4 rounded-lg border border-blue-200 text-center hover:bg-blue-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-blue-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                            <span class="text-sm font-medium text-blue-700">Bank Reconciliation</span>
+                        </a>
+                        <!-- Bank Transfers -->
+                        <a href="{{ route('accounting.bank-transfers.index') }}" class="bg-indigo-50 p-4 rounded-lg border border-indigo-200 text-center hover:bg-indigo-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-indigo-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                            <span class="text-sm font-medium text-indigo-700">Bank Transfers</span>
+                        </a>
+                        <!-- Bank Accounts -->
+                        <a href="{{ route('accounting.bank-accounts.index') }}" class="bg-violet-50 p-4 rounded-lg border border-violet-200 text-center hover:bg-violet-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-violet-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
+                            <span class="text-sm font-medium text-violet-700">Bank Accounts</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            {{-- ===== CONFIGURATION & SETUP SECTION ===== --}}
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
                 <div class="p-6 bg-white border-b border-gray-200">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Configuration & Setup</h3>
                     {{-- Adjust grid columns based on final number of items --}}
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-
                         {{-- Link to Academic Years --}}
                         <a href="{{ route('accounting.academic-years.index') }}" {{-- Using accounting prefix --}}
                            class="bg-purple-50 p-4 rounded-lg border border-purple-200 text-center hover:bg-purple-100 transition flex flex-col items-center justify-center">
@@ -129,13 +192,25 @@
                            <span class="text-sm font-medium text-teal-700">Payment Methods</span>
                         </a>
 
-                        {{-- Add other setup links here: Tax Rates, etc. --}}
+                        {{-- Link to Suppliers --}}
+                        <a href="{{ route('accounting.suppliers.index') }}"
+                           class="bg-amber-50 p-4 rounded-lg border border-amber-200 text-center hover:bg-amber-100 transition flex flex-col items-center justify-center">
+                           {{-- Building Icon --}}
+                           <svg class="w-6 h-6 text-amber-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+                           <span class="text-sm font-medium text-amber-700">Suppliers</span>
+                        </a>
 
+                        {{-- Link to Item Categories --}}
+                        <a href="{{ route('accounting.item-categories.index') }}"
+                           class="bg-fuchsia-50 p-4 rounded-lg border border-fuchsia-200 text-center hover:bg-fuchsia-100 transition flex flex-col items-center justify-center">
+                           {{-- Tag Icon --}}
+                           <svg class="w-6 h-6 text-fuchsia-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path></svg>
+                           <span class="text-sm font-medium text-fuchsia-700">Item Categories</span>
+                        </a>
                     </div>
                 </div>
             </div>
             {{-- ===== END OF CONFIGURATION SECTION ===== --}}
-
 
             <!-- Student Financial Management -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6">
@@ -191,15 +266,19 @@
                             <svg class="w-6 h-6 text-cyan-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
                             <span class="text-sm font-medium text-cyan-700">Budget Reports</span>
                         </a>
-                        {{-- Add other budget links --}}
+                        <!-- Tenders -->
+                        <a href="{{ route('accounting.tenders.index') }}" class="bg-rose-50 p-4 rounded-lg border border-rose-200 text-center hover:bg-rose-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-rose-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <span class="text-sm font-medium text-rose-700">Tenders</span>
+                        </a>
+                        <!-- Contracts -->
+                        <a href="{{ route('accounting.procurement-contracts.index') }}" class="bg-amber-50 p-4 rounded-lg border border-amber-200 text-center hover:bg-amber-100 transition flex flex-col items-center justify-center">
+                            <svg class="w-6 h-6 text-amber-600 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span class="text-sm font-medium text-amber-700">Contracts</span>
+                        </a>
                     </div>
                 </div>
             </div>
-
-            {{-- Removed Temporary Student Management Section --}}
-            {{-- You might want to keep it if import/promotion are still needed here short-term --}}
-            {{-- <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg mb-6"> ... </div> --}}
-
 
             <!-- Recent Transactions -->
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
@@ -218,6 +297,7 @@
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Number</th>
+                                        <th scope="col" class="px-6 py-3 text-left text-xs font-medium
                                         <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                                         <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                                         <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>

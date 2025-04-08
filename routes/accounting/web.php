@@ -17,22 +17,36 @@ use App\Http\Controllers\Accounting\NotificationsController;
 use App\Http\Controllers\Accounting\StudentLedgerController;
 use App\Http\Controllers\Accounting\BulkInvoiceController;
 use App\Http\Controllers\Accounting\BudgetController;
-use App\Http\Controllers\Accounting\CapexBudgetController; // <-- ADDED: Import the new controller
+use App\Http\Controllers\Accounting\CapexBudgetController;
 use App\Http\Controllers\Accounting\PaymentPlanController;
 use App\Http\Controllers\Accounting\DebtorController;
 use App\Http\Controllers\Accounting\CreditorController;
 use App\Http\Controllers\Accounting\StudentDebtController;
 use App\Http\Controllers\Accounting\SmsController;
 use App\Http\Controllers\Accounting\AccountTypeController;
-use App\Http\Controllers\Accounting\AcademicYearController; // Controller for Academic Years
-use App\Http\Controllers\Accounting\TermController;         // Controller for Terms
-use App\Http\Controllers\Accounting\SchoolClassController;   // Controller for Classes
-use App\Http\Controllers\Accounting\PaymentMethodController; // Added based on need
+use App\Http\Controllers\Accounting\AcademicYearController;
+use App\Http\Controllers\Accounting\TermController;
+use App\Http\Controllers\Accounting\SchoolClassController;
+use App\Http\Controllers\Accounting\PaymentMethodController;
+// Banking & Cash Management Controllers
+use App\Http\Controllers\Accounting\CashbookController;
+use App\Http\Controllers\Accounting\BankReconciliationController;
+use App\Http\Controllers\Accounting\BankTransferController;
+use App\Http\Controllers\Accounting\BankAccountController;
+// Procurement Controllers
+use App\Http\Controllers\Accounting\ProcurementController;
+use App\Http\Controllers\Accounting\PurchaseRequestController;
+use App\Http\Controllers\Accounting\PurchaseOrderController;
+use App\Http\Controllers\Accounting\SupplierController;
+use App\Http\Controllers\Accounting\ItemCategoryController;
+use App\Http\Controllers\Accounting\InventoryItemController;
+use App\Http\Controllers\Accounting\GoodsReceiptController;
+use App\Http\Controllers\Accounting\ProcurementContractController;
+use App\Http\Controllers\Accounting\TenderController;
 
 // --- Other Controllers ---
 use App\Http\Controllers\StudentImportController;
 use App\Http\Controllers\StudentPromotionController;
-
 
 // Apply auth middleware and prefix/name grouping for all accounting routes
 Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(function () {
@@ -43,7 +57,7 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     // Chart of Accounts & Types
     Route::resource('accounts', ChartOfAccountsController::class);
     Route::resource('account-types', AccountTypeController::class);
-    Route::resource('payment-methods', PaymentMethodController::class); // Corrected namespace
+    Route::resource('payment-methods', PaymentMethodController::class);
 
     // Contacts
     Route::resource('contacts', ContactsController::class);
@@ -75,19 +89,83 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     // Journals
     Route::resource('journals', JournalsController::class);
 
+    // === Banking & Cash Management ===
+    // Bank Accounts
+    Route::resource('bank-accounts', BankAccountController::class);
+    // Cashbook
+    Route::resource('cashbook', CashbookController::class);
+    Route::get('cashbook/entries', [CashbookController::class, 'entries'])->name('cashbook.entries');
+    Route::post('cashbook/entries', [CashbookController::class, 'storeEntry'])->name('cashbook.entries.store');
+    // Bank Reconciliation
+    Route::resource('bank-reconciliation', BankReconciliationController::class);
+    Route::get('bank-reconciliation/{id}/match', [BankReconciliationController::class, 'match'])->name('bank-reconciliation.match');
+    Route::post('bank-reconciliation/{id}/confirm', [BankReconciliationController::class, 'confirm'])->name('bank-reconciliation.confirm');
+    Route::post('bank-reconciliation/{id}/import-statement', [BankReconciliationController::class, 'importStatement'])->name('bank-reconciliation.import-statement');
+    // Bank Transfers
+    Route::resource('bank-transfers', BankTransferController::class);
+    // === End Banking & Cash Management ===
+
+    // === Procurement & Inventory Management ===
+    // Procurement Dashboard
+    Route::get('procurement', [ProcurementController::class, 'index'])->name('procurement.index');
+    
+    // Suppliers
+    Route::resource('suppliers', SupplierController::class);
+    Route::get('suppliers/{supplier}/performance', [SupplierController::class, 'performance'])->name('suppliers.performance');
+    
+    // Item Categories
+    Route::resource('item-categories', ItemCategoryController::class);
+    
+    // Inventory Items
+    Route::resource('inventory-items', InventoryItemController::class);
+    Route::get('inventory-items/{item}/stock-history', [InventoryItemController::class, 'stockHistory'])->name('inventory-items.stock-history');
+    
+    // Purchase Requests
+    Route::resource('purchase-requests', PurchaseRequestController::class);
+    Route::get('purchase-requests/{purchase_request}/items', [PurchaseRequestController::class, 'items'])->name('purchase-requests.items');
+    Route::post('purchase-requests/{purchase_request}/items', [PurchaseRequestController::class, 'storeItem'])->name('purchase-requests.items.store');
+    Route::delete('purchase-requests/{purchase_request}/items/{item}', [PurchaseRequestController::class, 'destroyItem'])->name('purchase-requests.items.destroy');
+    Route::post('purchase-requests/{purchase_request}/approve', [PurchaseRequestController::class, 'approve'])->name('purchase-requests.approve');
+    Route::post('purchase-requests/{purchase_request}/reject', [PurchaseRequestController::class, 'reject'])->name('purchase-requests.reject');
+    
+    // Purchase Orders
+    Route::resource('purchase-orders', PurchaseOrderController::class);
+    Route::get('purchase-orders/{purchase_order}/items', [PurchaseOrderController::class, 'items'])->name('purchase-orders.items');
+    Route::post('purchase-orders/{purchase_order}/items', [PurchaseOrderController::class, 'storeItem'])->name('purchase-orders.items.store');
+    Route::delete('purchase-orders/{purchase_order}/items/{item}', [PurchaseOrderController::class, 'destroyItem'])->name('purchase-orders.items.destroy');
+    Route::post('purchase-orders/{purchase_order}/approve', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve');
+    Route::post('purchase-orders/{purchase_order}/issue', [PurchaseOrderController::class, 'issue'])->name('purchase-orders.issue');
+    Route::get('purchase-orders/{purchase_order}/print', [PurchaseOrderController::class, 'print'])->name('purchase-orders.print');
+    
+    // Goods Receipt
+    Route::resource('goods-receipts', GoodsReceiptController::class);
+    Route::get('goods-receipts/{goods_receipt}/items', [GoodsReceiptController::class, 'items'])->name('goods-receipts.items');
+    Route::post('goods-receipts/{goods_receipt}/items', [GoodsReceiptController::class, 'storeItem'])->name('goods-receipts.items.store');
+    Route::post('goods-receipts/{goods_receipt}/complete', [GoodsReceiptController::class, 'complete'])->name('goods-receipts.complete');
+    
+    // Procurement Contracts
+    Route::resource('procurement-contracts', ProcurementContractController::class);
+    Route::get('procurement-contracts/{procurement_contract}/download', [ProcurementContractController::class, 'download'])->name('procurement-contracts.download');
+    
+    // Tenders
+    Route::resource('tenders', TenderController::class);
+    Route::get('tenders/{tender}/bids', [TenderController::class, 'bids'])->name('tenders.bids');
+    Route::post('tenders/{tender}/award', [TenderController::class, 'award'])->name('tenders.award');
+    Route::get('tenders/{tender}/download', [TenderController::class, 'download'])->name('tenders.download');
+    // === End Procurement & Inventory Management ===
+
     // === Setup (Moved Academic Years, Terms, Classes here) ===
     // Academic Years & Terms
     Route::resource('academic-years', AcademicYearController::class);
     Route::post('academic-years/{academic_year}/terms', [TermController::class, 'store'])->name('academic-years.terms.store');
     Route::delete('academic-years/{academic_year}/terms/{term}', [TermController::class, 'destroy'])->name('academic-years.terms.destroy');
     // Classes
-    Route::resource('classes', SchoolClassController::class); // Manages TimetableSchoolClass model
+    Route::resource('classes', SchoolClassController::class);
     // Fee Structure & Items
     Route::resource('fee-structures', FeeStructureController::class);
     Route::post('fee-structures/{fee_structure}/items', [FeeStructureItemController::class, 'store'])->name('fee-structures.items.store');
     Route::delete('fee-structures/{fee_structure}/items/{item}', [FeeStructureItemController::class, 'destroy'])->name('fee-structures.items.destroy');
     // === End Setup ===
-
 
     // POS
     Route::get('pos', [PosController::class, 'index'])->name('pos.index');
@@ -97,23 +175,17 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
 
     // === Budget Management ===
     // -- Non-CAPEX Budgets --
-    Route::resource('budgets', BudgetController::class); // Keep this for operational budgets
-    Route::get('budgets/{id}/items', [BudgetController::class, 'showItems'])->name('budgets.items'); // Assuming this is for non-capex
-    Route::post('budgets/{id}/items', [BudgetController::class, 'storeItem'])->name('budgets.items.store'); // Assuming this is for non-capex
-    Route::post('budgets/{id}/approve-status', [BudgetController::class, 'approveStatus'])->name('budgets.approve-status'); // Assuming this is for non-capex
+    Route::resource('budgets', BudgetController::class);
+    Route::get('budgets/{id}/items', [BudgetController::class, 'showItems'])->name('budgets.items');
+    Route::post('budgets/{id}/items', [BudgetController::class, 'storeItem'])->name('budgets.items.store');
+    Route::post('budgets/{id}/approve-status', [BudgetController::class, 'approveStatus'])->name('budgets.approve-status');
 
     // -- CAPEX Budgets/Projects --
-    // UPDATED: Point these routes to the new CapexBudgetController and standard methods
     Route::get('capex-projects', [CapexBudgetController::class, 'index'])->name('capex.index');
     Route::get('capex-projects/create', [CapexBudgetController::class, 'create'])->name('capex.create');
     Route::post('capex-projects', [CapexBudgetController::class, 'store'])->name('capex.store');
     Route::get('capex-projects/{id}', [CapexBudgetController::class, 'show'])->name('capex.show');
-    // You might want to add edit/update/destroy routes here later for capex:
-    // Route::get('capex-projects/{capex_project}/edit', [CapexBudgetController::class, 'edit'])->name('capex.edit');
-    // Route::put('capex-projects/{capex_project}', [CapexBudgetController::class, 'update'])->name('capex.update'); // Or patch
-    // Route::delete('capex-projects/{capex_project}', [CapexBudgetController::class, 'destroy'])->name('capex.destroy');
     // === End Budget Management ===
-
 
     // Debtors & Creditors
     Route::get('debtors', [DebtorController::class, 'index'])->name('debtors.index');
@@ -130,6 +202,10 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::get('reports/tax', [ReportsController::class, 'tax'])->name('reports.tax');
     Route::get('reports/student-balances', [ReportsController::class, 'studentBalances'])->name('reports.student-balances');
     Route::get('reports/budget-vs-actual', [ReportsController::class, 'budgetVsActual'])->name('reports.budget-vs-actual');
+    // Procurement Reports
+    Route::get('reports/procurement-summary', [ReportsController::class, 'procurementSummary'])->name('reports.procurement-summary');
+    Route::get('reports/inventory-valuation', [ReportsController::class, 'inventoryValuation'])->name('reports.inventory-valuation');
+    Route::get('reports/supplier-spend', [ReportsController::class, 'supplierSpend'])->name('reports.supplier-spend');
 
     // Notifications & SMS
     Route::resource('notifications', NotificationsController::class);
@@ -158,12 +234,6 @@ Route::middleware(['auth'])->prefix('students')->name('students.')->group(functi
 
     // Basic student index (for redirects or future student list)
     Route::get('/', function() {
-        return redirect()->route('accounting.dashboard'); // Keep redirect for now
+        return redirect()->route('accounting.dashboard');
     })->name('index');
-
-    // Add actual student management routes here later if needed
-    // Route::resource('students', App\Http\Controllers\Student\ManagementStudentController::class);
 });
-
-// Removed the setup group from inside the students group
-// Route::middleware(['auth'])->prefix('setup')->name('setup.')->group(function() { ... }); <-- This was incorrect placement
