@@ -72,27 +72,31 @@
          .whitespace-pre-line {
              white-space: pre-line; /* Respect newlines in notes/terms */
          }
-         .company-logo {
-             max-width: 150px; /* Adjust max width */
-             max-height: 75px; /* Adjust max height */
-             margin-bottom: 15px;
-         }
+        /* Styles for Header Partial */
          .header-section table, .bill-to-section table {
              border: none; /* Remove borders for layout tables */
+             margin-bottom: 0; /* Removed default margin */
          }
          .header-section td, .bill-to-section td {
              border: none;
              padding: 2px 0;
          }
+         .invoice-details td { /* Specific styles for invoice details section */
+             border: none;
+             padding: 2px 0;
+         }
+        /* Styles for Items Table */
          .items-table th, .items-table td {
              border: 1px solid #ddd; /* Add borders to items table */
          }
          .items-table thead th {
               background-color: #eee; /* Slightly darker header for items */
          }
+         /* Styles for Summary */
          .summary-section {
              width: 40%; /* Adjust width */
              margin-left: 60%; /* Push to the right */
+             margin-top: 20px; /* Add space above summary */
          }
          .summary-section td {
              border: none;
@@ -104,6 +108,7 @@
              border-top: 2px solid #333;
              padding-top: 8px;
          }
+         /* Styles for Footer */
          .footer {
              margin-top: 30px;
              padding-top: 10px;
@@ -120,23 +125,15 @@
 <body>
     <div class="container">
 
-        {{-- Optional: Company Logo --}}
-        {{-- @if(config('accounting.company_logo_path'))
-            <img src="{{ public_path(config('accounting.company_logo_path')) }}" alt="{{ config('app.name') }} Logo" class="company-logo">
-        @endif --}}
+        {{-- === INCLUDE THE SHARED HEADER === --}}
+        @include('layouts.print-header')
+        {{-- ================================== --}}
 
-        {{-- Invoice Header Table --}}
-        <table class="header-section">
+        {{-- Invoice Specific Header Table --}}
+        <table class="invoice-details mb-8">
             <tr>
-                <td style="width: 60%;">
-                    <h1 class="text-xl font-bold">{{ config('app.name', 'Your Company') }}</h1>
-                     {{-- Add your company address/details here if not using logo section --}}
-                    <p>{{ config('accounting.company_address', '123 Main St, City, Country') }}</p>
-                    <p>Phone: {{ config('accounting.company_phone', '555-1234') }}</p>
-                    <p>Email: {{ config('accounting.company_email', 'info@example.com') }}</p>
-                    {{-- Add Tax ID if needed --}}
-                    {{-- <p>Tax ID: {{ config('accounting.company_tax_id', 'Your Tax ID') }}</p> --}}
-                </td>
+                {{-- Empty cell to push details to the right if using 2-column layout --}}
+                <td style="width: 60%; vertical-align: top;"></td>
                 <td style="width: 40%; vertical-align: top; text-align: right;">
                     <h2 class="text-lg font-bold">INVOICE</h2>
                     <p><strong>Number:</strong> {{ $invoice->invoice_number }}</p>
@@ -146,20 +143,21 @@
                         <p><strong>Reference:</strong> {{ $invoice->reference }}</p>
                     @endif
                      <p><strong>Status:</strong> <span style="text-transform: uppercase;">{{ $invoice->status }}</span></p>
-
                 </td>
             </tr>
         </table>
 
         {{-- Bill To Section Table --}}
         <table class="bill-to-section mb-8">
-            <tr>
-                <td style="width: 60%;">{{-- Spacer or From Address if different --}}</td>
+             <tr>
+                <td style="width: 60%; vertical-align: top;">
+                    {{-- Optionally put 'Bill From' details here if needed --}}
+                </td>
                 <td style="width: 40%; vertical-align: top;">
                     <strong>Bill To:</strong><br>
                     @if($invoice->contact)
                         {{ $invoice->contact->name }}<br>
-                        @if($invoice->contact->address) {{ $invoice->contact->address }}<br> @endif
+                        @if($invoice->contact->address) {!! nl2br(e($invoice->contact->address)) !!}<br> @endif {{-- Use nl2br for address --}}
                         @if($invoice->contact->city || $invoice->contact->state || $invoice->contact->postal_code)
                             {{ $invoice->contact->city }} {{ $invoice->contact->state }} {{ $invoice->contact->postal_code }}<br>
                         @endif
@@ -187,22 +185,21 @@
                 </tr>
             </thead>
             <tbody>
-                @if($invoice->items && $invoice->items->count() > 0)
-                    @foreach($invoice->items as $item)
-                        <tr>
-                            <td>{{ $item->description }}</td>
-                            <td class="text-right">{{ number_format($item->quantity, 2) }}</td> {{-- Adjust decimal places if needed --}}
-                            <td class="text-right">{{ number_format($item->unit_price, 2) }}</td>
-                            <td class="text-right">
-                                {{ number_format($item->tax_amount ?? 0, 2) }}
-                                @if($item->taxRate) <br><span style="font-size: 8pt;">({{ $item->taxRate->rate + 0 }}%)</span> @endif {{-- +0 forces number display --}}
-                            </td>
-                            <td class="text-right">{{ number_format($item->subtotal + ($item->tax_amount ?? 0), 2) }}</td> {{-- Show line total including tax --}}
-                        </tr>
-                    @endforeach
-                @else
-                    <tr><td colspan="5" class="text-center">No items.</td></tr>
-                @endif
+                @forelse($invoice->items as $item)
+                    <tr>
+                        <td>{{ $item->description }}</td>
+                        <td class="text-right">{{ number_format($item->quantity, 2) }}</td>
+                        <td class="text-right">{{ number_format($item->unit_price, 2) }}</td>
+                        <td class="text-right">
+                            {{ number_format($item->tax_amount ?? 0, 2) }}
+                            @if($item->taxRate) <br><span style="font-size: 8pt;">({{ $item->taxRate->rate + 0 }}%)</span> @endif
+                        </td>
+                        {{-- Line Total including tax --}}
+                        <td class="text-right">{{ number_format(($item->quantity * $item->unit_price) + ($item->tax_amount ?? 0), 2) }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="5" class="text-center">No items on this invoice.</td></tr>
+                @endforelse
             </tbody>
         </table>
 
@@ -210,20 +207,22 @@
         <table class="summary-section">
             <tr>
                 <td>Subtotal:</td>
-                <td class="text-right">{{ number_format($invoice->subtotal ?? 0, 2) }}</td>
+                {{-- Calculate subtotal from items without tax --}}
+                <td class="text-right">{{ number_format($invoice->items->sum(function($item){ return $item->quantity * $item->unit_price; }), 2) }}</td>
             </tr>
              <tr>
                 <td>Total Tax:</td>
-                <td class="text-right">{{ number_format($invoice->tax_amount ?? 0, 2) }}</td>
+                 {{-- Calculate total tax from items --}}
+                <td class="text-right">{{ number_format($invoice->items->sum('tax_amount'), 2) }}</td>
             </tr>
             <tr class="total-row">
                 <td>Total:</td>
-                <td class="text-right">{{ number_format($invoice->total ?? 0, 2) }}</td>
+                <td class="text-right">{{ number_format($invoice->total ?? 0, 2) }}</td> {{-- Use the invoice total field --}}
             </tr>
              @if(isset($invoice->amount_paid) && $invoice->amount_paid > 0)
                  <tr>
-                    <td>Amount Paid:</td>
-                    <td class="text-right">(-) {{ number_format($invoice->amount_paid, 2) }}</td>
+                    <td style="padding-top: 10px;">Amount Paid:</td>
+                    <td class="text-right" style="padding-top: 10px;">(-) {{ number_format($invoice->amount_paid, 2) }}</td>
                 </tr>
                  <tr class="total-row">
                     <td>Balance Due:</td>

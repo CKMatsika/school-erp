@@ -1,61 +1,164 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Send SMS Message') }}
+            {{ __('Send SMS Messages') }}
         </h2>
     </x-slot>
 
     <div class="py-12">
-        <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
+        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            @include('components.flash-messages')
+
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 bg-white border-b border-gray-200">
-                    @if(session('success'))
-                        <div class="mb-4 bg-green-100 border-l-4 border-green-500 text-green-700 p-4" role="alert"><p>{{ session('success') }}</p></div>
-                    @endif
-                     @if(session('warning'))
-                        <div class="mb-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4" role="alert"><p>{{ session('warning') }}</p></div>
-                     @endif
-                     @if(session('error'))
-                         <div class="mb-4 bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert"><p>{{ session('error') }}</p></div>
-                     @endif
-                     @if ($errors->any())
-                        <div class="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">...</div>
-                    @endif
-
-                    <form method="POST" action="{{ route('accounting.sms.process-send') }}">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Send SMS Message</h3>
+                    
+                    <form method="POST" action="{{ route('accounting.sms.process-send') }}" class="space-y-6">
                         @csrf
-
-                        {{-- Recipients (Example: Multi-select dropdown) --}}
-                        <div class="mb-4">
-                            <x-input-label for="recipients" :value="__('Recipients *')" />
-                            {{-- Use a multi-select library like Select2 or TomSelect for better UX --}}
-                            <select name="recipients[]" id="recipients" multiple required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm h-40">
-                                @foreach($contacts as $contact)
-                                    <option value="{{ $contact->id }}" {{ in_array($contact->id, old('recipients', [])) ? 'selected' : '' }}>
-                                        {{ $contact->name }} ({{ $contact->phone }})
-                                    </option>
-                                @endforeach
+                        
+                        <div>
+                            <label for="recipient_type" class="block text-sm font-medium text-gray-700">Recipient Type</label>
+                            <select id="recipient_type" name="recipient_type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="individual">Individual Numbers</option>
+                                <option value="parents">All Parents</option>
+                                <option value="class">Specific Class</option>
+                                <option value="staff">All Staff</option>
+                                <option value="debtors">Fee Debtors</option>
                             </select>
-                            <x-input-error :messages="$errors->get('recipients')" class="mt-2" />
-                            <p class="text-xs text-gray-500 mt-1">Select one or more contacts (Hold Ctrl/Cmd to select multiple).</p>
                         </div>
-
-                         {{-- Message --}}
-                        <div class="mb-4">
-                            <x-input-label for="message" :value="__('Message *')" />
-                            <textarea name="message" id="message" rows="5" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">{{ old('message') }}</textarea>
-                            <x-input-error :messages="$errors->get('message')" class="mt-2" />
-                            {{-- Optional: Add character counter --}}
+                        
+                        <div id="individual_section">
+                            <label for="recipients" class="block text-sm font-medium text-gray-700">Recipients (comma separated phone numbers)</label>
+                            <textarea id="recipients" name="recipients" rows="3" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                            <p class="mt-1 text-sm text-gray-500">Enter phone numbers in international format (e.g., +254712345678)</p>
                         </div>
-
-                        <div class="flex justify-end">
-                            <x-primary-button type="submit">
-                                Send Message
-                            </x-primary-button>
+                        
+                        <div id="class_section" class="hidden">
+                            <label for="class_id" class="block text-sm font-medium text-gray-700">Select Class</label>
+                            <select id="class_id" name="class_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="">Select a class</option>
+                                @if(isset($classes))
+                                    @foreach($classes as $class)
+                                        <option value="{{ $class->id }}">{{ $class->name }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="gateway_id" class="block text-sm font-medium text-gray-700">SMS Gateway</label>
+                            <select id="gateway_id" name="gateway_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="">Select Gateway</option>
+                                @if(isset($gateways))
+                                    @foreach($gateways as $gateway)
+                                        <option value="{{ $gateway->id }}">{{ $gateway->name }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="template_id" class="block text-sm font-medium text-gray-700">Use Template (
+                                <label for="template_id" class="block text-sm font-medium text-gray-700">Use Template (Optional)</label>
+                            <select id="template_id" name="template_id" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                <option value="">Select Template or Write Custom Message</option>
+                                @if(isset($templates))
+                                    @foreach($templates as $template)
+                                        <option value="{{ $template->id }}">{{ $template->name }}</option>
+                                    @endforeach
+                                @endif
+                            </select>
+                        </div>
+                        
+                        <div>
+                            <label for="message" class="block text-sm font-medium text-gray-700">Message</label>
+                            <textarea id="message" name="message" rows="4" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"></textarea>
+                            <p class="mt-1 text-sm text-gray-500"><span id="char_count">0</span>/160 characters. Messages longer than 160 characters may be split into multiple SMS.</p>
+                        </div>
+                        
+                        <div>
+                            <label for="scheduled_at" class="block text-sm font-medium text-gray-700">Schedule for later (Optional)</label>
+                            <input type="datetime-local" id="scheduled_at" name="scheduled_at" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                        </div>
+                        
+                        <div class="flex justify-between items-center">
+                            <button type="submit" class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 active:bg-blue-900 focus:outline-none focus:border-blue-900 focus:ring ring-blue-300 disabled:opacity-25 transition ease-in-out duration-150">
+                                Send SMS
+                            </button>
+                            
+                            <span class="text-sm text-gray-500">
+                                Estimated cost: <span id="cost_estimate">$0.00</span>
+                            </span>
                         </div>
                     </form>
                 </div>
             </div>
+
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="p-6 bg-white border-b border-gray-200">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">SMS Best Practices</h3>
+                    
+                    <div class="prose max-w-none">
+                        <ul>
+                            <li>Keep messages concise and to the point.</li>
+                            <li>Include the school name to identify the sender.</li>
+                            <li>Avoid sending SMS during late hours.</li>
+                            <li>For urgent notifications, consider sending SMS in addition to email.</li>
+                            <li>Remember that some recipients may incur charges for receiving SMS.</li>
+                            <li>Include opt-out instructions for bulk messages.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
+
+    <script>
+        // Character counter for SMS
+        document.getElementById('message').addEventListener('input', function() {
+            const charCount = this.value.length;
+            document.getElementById('char_count').textContent = charCount;
+            
+            // Simple cost estimator
+            const numMessages = Math.ceil(charCount / 160);
+            const costPerMessage = 0.01; // Example cost in dollars
+            const totalCost = (numMessages * costPerMessage * document.getElementById('recipients').value.split(',').filter(x => x.trim()).length).toFixed(2);
+            document.getElementById('cost_estimate').textContent = '$' + totalCost;
+        });
+        
+        // Show/hide sections based on recipient type
+        document.getElementById('recipient_type').addEventListener('change', function() {
+            const individualSection = document.getElementById('individual_section');
+            const classSection = document.getElementById('class_section');
+            
+            if (this.value === 'individual') {
+                individualSection.classList.remove('hidden');
+                classSection.classList.add('hidden');
+            } else if (this.value === 'class') {
+                individualSection.classList.add('hidden');
+                classSection.classList.remove('hidden');
+            } else {
+                individualSection.classList.add('hidden');
+                classSection.classList.add('hidden');
+            }
+        });
+        
+        // Populate message when template is selected
+        document.getElementById('template_id').addEventListener('change', function() {
+            if (this.value) {
+                // This would typically be an AJAX call to get template content
+                // For demo purposes, we'll just simulate it
+                fetch(`/accounting/sms/templates/${this.value}/content`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.content) {
+                            document.getElementById('message').value = data.content;
+                            // Trigger the input event to update character count
+                            document.getElementById('message').dispatchEvent(new Event('input'));
+                        }
+                    })
+                    .catch(error => console.error('Error fetching template:', error));
+            }
+        });
+    </script>
 </x-app-layout>

@@ -6,37 +6,40 @@ use App\Http\Controllers\Controller;
 use App\Models\Accounting\ProcurementContract;
 use App\Models\Accounting\Supplier;
 use App\Models\Accounting\Tender;
+// Correct namespace if needed
+// use App\Models\Settings\AcademicYear;
 use App\Models\Accounting\AcademicYear;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth; // <-- Import Auth
+use Illuminate\Support\Facades\Log;   // <-- Import Log
 use Illuminate\Support\Str;
+use Carbon\Carbon; // <-- Import Carbon
 
 class ProcurementContractController extends Controller
 {
     /**
      * Display a listing of the procurement contracts.
      *
-     * @return \Illuminate\Http\Response
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Contracts\View\View
      */
     public function index(Request $request)
     {
         $query = ProcurementContract::with(['supplier', 'tender', 'academicYear']);
-        
+
         // Apply filters
-        if ($request->has('status') && $request->status) {
+        if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-        
-        if ($request->has('supplier_id') && $request->supplier_id) {
+        if ($request->filled('supplier_id')) {
             $query->where('supplier_id', $request->supplier_id);
         }
-        
-        if ($request->has('academic_year_id') && $request->academic_year_id) {
+        if ($request->filled('academic_year_id')) {
             $query->where('academic_year_id', $request->academic_year_id);
         }
-        
-        if ($request->has('search') && $request->search) {
+        if ($request->filled('search')) {
             $search = '%' . $request->search . '%';
             $query->where(function($q) use ($search) {
                 $q->where('title', 'like', $search)
@@ -44,70 +47,84 @@ class ProcurementContractController extends Controller
                   ->orWhere('description', 'like', $search);
             });
         }
-        
+
         // Get results
-        $contracts = $query->orderBy('end_date')
-            ->paginate(15);
-            
+        $contracts = $query->orderBy('end_date')->paginate(15)->withQueryString();
+
         // Get suppliers and academic years for filter
-        $suppliers = Supplier::where('is_active', true)
-            ->orderBy('name')
-            ->get();
-            
-        $academicYears = AcademicYear::orderBy('year', 'desc')->get();
-        
+        // Adjust if 'is_active' doesn't exist for suppliers
+        $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
+        // $suppliers = Supplier::where('is_active', true)->orderBy('name')->get(['id', 'name']);
+
+        // Corrected: Order academic years by start_date
+        $academicYears = AcademicYear::orderBy('start_date', 'desc')->get();
+        // $academicYears = AcademicYear::orderBy('year', 'desc')->get(); // Original incorrect line
+
         return view('accounting.procurement-contracts.index', compact('contracts', 'suppliers', 'academicYears'));
     }
 
     /**
      * Show the form for creating a new procurement contract.
      *
-     * @return \Illuminate\Http\Response
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Contracts\View\View|\Illuminate\Http\RedirectResponse
      */
     public function create(Request $request)
     {
-        // Get all active suppliers
-        $suppliers = Supplier::where('is_active', true)
-            ->orderBy('name')
-            ->get();
-            
-        // Get active academic year
-        $academicYear = AcademicYear::where('is_active', true)->first();
-        
-        // Get tenders that have been awarded
+        // Get suppliers
+        $suppliers = Supplier::orderBy('name')->get(['id', 'name']); // Fetch all or filter active if needed
+
+        // Get current academic year
+        $today = Carbon::today();
+        $academicYear = AcademicYear::where('start_date', '<=', $today)
+                                      ->where('end_date', '>=', $today)
+                                      ->first();
+        if (!$academicYear) {
+             $academicYear = AcademicYear::orderBy('start_date', 'desc')->first(); // Fallback
+              if(!$academicYear) {
+                return redirect()->route('accounting.academic-years.index')
+                    ->with('error', 'Please set up Academic Years before creating Contracts.');
+             }
+        }
+
+        // Get potential Tenders to link
         $tenders = null;
-        
-        // If creating from a tender
         $selectedTender = null;
+        $preSelectedSupplierId = null; // To pre-fill supplier if coming from Tender
+
         if ($request->has('tender_id')) {
-            $selectedTender = Tender::with('awardedSupplier')
-                ->findOrFail($request->tender_id);
-                
-            // Verify the tender is awarded
-            if ($selectedTender->status !== 'awarded' || !$selectedTender->awardedSupplier) {
-                return redirect()->route('accounting.tenders.show', $selectedTender)
-                    ->with('error', 'This tender has not been awarded yet.');
+            // If creating directly from a specific awarded tender
+            $selectedTender = Tender::with('awardedSupplier')->find($request->tender_id);
+
+            if (!$selectedTender || $selectedTender->status !== 'awarded' || !$selectedTender->awardedSupplier) {
+                 return redirect()->route('accounting.tenders.index') // Redirect to tender list
+                    ->with('error', 'Selected tender is not valid for contract creation (must be awarded to a supplier).');
             }
+            $preSelectedSupplierId = $selectedTender->awarded_to; // Pre-select the awarded supplier
+
         } else {
-            // Get all awarded tenders without contracts
+            // If not coming from a specific tender, provide a list of awarded tenders without contracts
             $tenders = Tender::where('status', 'awarded')
                 ->whereNotNull('awarded_to')
-                ->whereDoesntHave('contracts')
-                ->with('awardedSupplier')
-                ->get();
+                ->whereDoesntHave('contracts') // Only show those without contracts yet
+                ->with('awardedSupplier:id,name') // Load supplier name efficiently
+                ->orderBy('award_date', 'desc')
+                ->get(['id', 'tender_number', 'title', 'awarded_to']); // Select necessary columns
         }
-        
+
+
         // Generate contract number
-        $latestContract = ProcurementContract::latest()->first();
+        $latestContract = ProcurementContract::latest('id')->first();
         $nextId = $latestContract ? $latestContract->id + 1 : 1;
         $contractNumber = 'CNT-' . date('Ym') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
-        
+
         return view('accounting.procurement-contracts.create', compact(
-            'suppliers', 
-            'academicYear', 
-            'tenders',
-            'selectedTender',
-            'contractNumber'
+            'suppliers',
+            'academicYear',
+            'tenders', // List of potential tenders (if not coming from specific one)
+            'selectedTender', // The specific tender if creating from it
+            'contractNumber',
+            'preSelectedSupplierId' // Pass pre-selected supplier ID
         ));
     }
 
@@ -115,7 +132,7 @@ class ProcurementContractController extends Controller
      * Store a newly created procurement contract in storage.
      *
      * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function store(Request $request)
     {
@@ -126,44 +143,73 @@ class ProcurementContractController extends Controller
             'supplier_id' => 'required|exists:suppliers,id',
             'tender_id' => 'nullable|exists:tenders,id',
             'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
+            'end_date' => 'required|date|after_or_equal:start_date', // Allow same day start/end
             'contract_value' => 'required|numeric|min:0',
             'terms_and_conditions' => 'nullable|string',
-            'academic_year_id' => 'nullable|exists:academic_years,id',
-            'contract_document' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
+            'academic_year_id' => 'required|exists:academic_years,id', // Make required as it's always passed now
+            'contract_document' => 'nullable|file|mimes:pdf,doc,docx|max:10240', // 10MB
         ]);
-        
+
         // Set defaults
         $validated['status'] = 'draft';
         $validated['created_by'] = auth()->id();
-        
+        $validated['tender_id'] = $validated['tender_id'] ?: null; // Ensure null if empty
+        $validated['contract_value'] = $validated['contract_value'] ?? 0; // Default value
+
         // Handle file upload if provided
         $documentPath = null;
         if ($request->hasFile('contract_document')) {
-            $file = $request->file('contract_document');
-            $fileName = 'contract_' . Str::slug($validated['contract_number']) . '_' . time() . '.' . $file->getClientOriginalExtension();
-            $documentPath = $file->storeAs('contracts', $fileName, 'public');
-            $validated['document_path'] = $documentPath;
+            try {
+                $file = $request->file('contract_document');
+                $fileName = 'contract_doc_' . $validated['contract_number'] . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $documentPath = $file->storeAs('contract_documents', $fileName, 'public'); // Store in 'contract_documents'
+                $validated['document_path'] = $documentPath;
+            } catch (\Exception $e) {
+                 Log::error("Contract Document Upload Failed: ".$e->getMessage());
+                 return back()->withInput()->with('error', 'Failed to upload contract document.');
+            }
         }
-        
-        // Create the contract
-        $contract = ProcurementContract::create($validated);
-        
-        return redirect()->route('accounting.procurement-contracts.show', $contract)
-            ->with('success', 'Contract created successfully.');
+
+        try {
+            // Check if selected tender allows contract creation (maybe already linked?)
+            if($validated['tender_id']) {
+                $tender = Tender::find($validated['tender_id']);
+                if ($tender && $tender->contracts()->exists()) {
+                     return back()->withInput()->with('error', 'The selected tender already has a contract linked.');
+                }
+                 // Optional: Check if supplier matches tender awardee
+                if ($tender && $tender->awarded_to && $tender->awarded_to != $validated['supplier_id']) {
+                    return back()->withInput()->with('error', 'The selected supplier does not match the supplier awarded for the chosen tender.');
+                }
+            }
+
+            // Create the contract
+            $contract = ProcurementContract::create($validated);
+
+            return redirect()->route('accounting.procurement-contracts.show', $contract)
+                ->with('success', 'Contract created successfully.');
+
+        } catch (\Exception $e) {
+            // Delete the uploaded file if database insertion failed
+            if ($documentPath && Storage::disk('public')->exists($documentPath)) {
+                Storage::disk('public')->delete($documentPath);
+            }
+            Log::error("Contract Creation Failed: ".$e->getMessage());
+            return back()->withInput()->with('error', 'Failed to create contract. Please check logs.');
+        }
     }
 
     /**
      * Display the specified procurement contract.
      *
      * @param  \App\Models\Accounting\ProcurementContract  $procurementContract
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Contracts\View\View
      */
     public function show(ProcurementContract $procurementContract)
     {
         // Load relationships
         $procurementContract->load(['supplier', 'tender', 'academicYear', 'creator']);
-        
+
         return view('accounting.procurement-contracts.show', compact('procurementContract'));
     }
 
@@ -171,33 +217,37 @@ class ProcurementContractController extends Controller
      * Show the form for editing the specified procurement contract.
      *
      * @param  \App\Models\Accounting\ProcurementContract  $procurementContract
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Contracts\View\View|\Illuminate\Http\RedirectResponse
      */
     public function edit(ProcurementContract $procurementContract)
     {
-        // Only allow editing of draft contracts
-        if ($procurementContract->status !== 'draft') {
+        // Define editable statuses
+        $editableStatuses = ['draft', 'active']; // Allow editing active contracts too? Adjust as needed.
+        if (!in_array($procurementContract->status, $editableStatuses)) {
             return redirect()->route('accounting.procurement-contracts.show', $procurementContract)
-                ->with('error', 'Only draft contracts can be edited.');
+                ->with('error', 'Only contracts with status: ' . implode(', ', $editableStatuses) . ' can be edited.');
         }
-        
-        // Get all active suppliers
-        $suppliers = Supplier::where('is_active', true)
-            ->orderBy('name')
-            ->get();
-            
+
+        // Get suppliers
+        $suppliers = Supplier::orderBy('name')->get(['id', 'name']);
+
         // Get academic years
-        $academicYears = AcademicYear::orderBy('year', 'desc')->get();
-        
-        // Get awarded tenders
+        $academicYears = AcademicYear::orderBy('start_date', 'desc')->get(); // Corrected order
+
+        // Get awarded tenders (include the current one if linked, plus others without contracts)
         $tenders = Tender::where('status', 'awarded')
             ->whereNotNull('awarded_to')
-            ->with('awardedSupplier')
-            ->get();
-        
+            ->where(function($query) use ($procurementContract) {
+                 $query->whereDoesntHave('contracts')
+                       ->orWhere('id', $procurementContract->tender_id);
+             })
+            ->with('awardedSupplier:id,name')
+            ->orderBy('award_date', 'desc')
+            ->get(['id', 'tender_number', 'title', 'awarded_to']);
+
         return view('accounting.procurement-contracts.edit', compact(
-            'procurementContract', 
-            'suppliers', 
+            'procurementContract',
+            'suppliers',
             'academicYears',
             'tenders'
         ));
@@ -208,16 +258,16 @@ class ProcurementContractController extends Controller
      *
      * @param  \Illuminate\Http\Request  $request
      * @param  \App\Models\Accounting\ProcurementContract  $procurementContract
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function update(Request $request, ProcurementContract $procurementContract)
     {
-        // Only allow editing of draft contracts
-        if ($procurementContract->status !== 'draft') {
+        $editableStatuses = ['draft', 'active']; // Define editable statuses
+        if (!in_array($procurementContract->status, $editableStatuses)) {
             return redirect()->route('accounting.procurement-contracts.show', $procurementContract)
-                ->with('error', 'Only draft contracts can be edited.');
+                ->with('error', 'Only contracts with status: ' . implode(', ', $editableStatuses) . ' can be edited.');
         }
-        
+
         $validated = $request->validate([
             'contract_number' => 'required|string|max:50|unique:procurement_contracts,contract_number,' . $procurementContract->id,
             'title' => 'required|string|max:255',
@@ -225,88 +275,143 @@ class ProcurementContractController extends Controller
             'supplier_id' => 'required|exists:suppliers,id',
             'tender_id' => 'nullable|exists:tenders,id',
             'start_date' => 'required|date',
-            'end_date' => 'required|date|after:start_date',
+            'end_date' => 'required|date|after_or_equal:start_date', // Allow same day
             'contract_value' => 'required|numeric|min:0',
             'terms_and_conditions' => 'nullable|string',
-            'academic_year_id' => 'nullable|exists:academic_years,id',
+            'academic_year_id' => 'required|exists:academic_years,id', // Make required
             'contract_document' => 'nullable|file|mimes:pdf,doc,docx|max:10240',
-            'status' => 'sometimes|in:draft,active',
+            // Allow changing status between draft/active? Or use separate actions?
+            'status' => 'sometimes|in:draft,active,terminated', // Define allowed statuses here
         ]);
-        
+
+        $validated['tender_id'] = $validated['tender_id'] ?: null;
+        $validated['academic_year_id'] = $validated['academic_year_id'] ?: null;
+        $validated['contract_value'] = $validated['contract_value'] ?? 0;
+
+
         // Handle file upload if provided
         if ($request->hasFile('contract_document')) {
-            // Delete old file if exists
-            if ($procurementContract->document_path) {
-                Storage::disk('public')->delete($procurementContract->document_path);
+             try {
+                // Delete old file if exists
+                if ($procurementContract->document_path && Storage::disk('public')->exists($procurementContract->document_path)) {
+                    Storage::disk('public')->delete($procurementContract->document_path);
+                }
+                // Store new file
+                $file = $request->file('contract_document');
+                $fileName = 'contract_doc_' . $validated['contract_number'] . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $validated['document_path'] = $file->storeAs('contract_documents', $fileName, 'public');
+            } catch (\Exception $e) {
+                 Log::error("Contract Document Update Upload Failed: ".$e->getMessage());
+                 unset($validated['document_path']); // Don't update path if upload failed
+                 session()->flash('warning', 'Failed to update contract document file.');
             }
-            
-            // Store new file
-            $file = $request->file('contract_document');
-            $fileName = 'contract_' . Str::slug($validated['contract_number']) . '_' . time() . '.' . $file->getClientOriginalExtension();
-            $validated['document_path'] = $file->storeAs('contracts', $fileName, 'public');
         }
-        
-        // Update contract
-        $procurementContract->update($validated);
-        
-        return redirect()->route('accounting.procurement-contracts.show', $procurementContract)
-            ->with('success', 'Contract updated successfully.');
+
+        // Handle status changes - add business logic checks if needed
+        if ($request->has('status')) {
+             // Example: Can only move from draft to active, or active to terminated
+            if ($procurementContract->status === 'draft' && $validated['status'] === 'active') {
+                // OK
+            } elseif ($procurementContract->status === 'active' && $validated['status'] === 'terminated') {
+                 // OK - maybe add terminated_at timestamp?
+            } elseif ($validated['status'] === $procurementContract->status) {
+                 // OK - No change
+            } else {
+                 unset($validated['status']); // Ignore invalid status change
+                 session()->flash('warning', 'Invalid status transition attempted.');
+            }
+        }
+
+        try {
+            // Check tender/supplier consistency if tender_id is being changed/set
+             if($request->filled('tender_id')) {
+                $tender = Tender::find($validated['tender_id']);
+                // Check if the new tender already has another contract
+                if ($tender && $tender->contracts()->where('id', '!=', $procurementContract->id)->exists()) {
+                     return back()->withInput()->with('error', 'The selected tender already has a contract linked.');
+                }
+                 // Check if supplier matches awardee
+                if ($tender && $tender->awarded_to && $tender->awarded_to != $validated['supplier_id']) {
+                    return back()->withInput()->with('error', 'The selected supplier does not match the supplier awarded for the chosen tender.');
+                }
+            }
+
+            // Update contract
+            $procurementContract->update($validated);
+
+            return redirect()->route('accounting.procurement-contracts.show', $procurementContract)
+                ->with('success', 'Contract updated successfully.');
+
+        } catch (\Exception $e) {
+             Log::error("Contract Update Failed for ID {$procurementContract->id}: ".$e->getMessage());
+             return back()->withInput()->with('error', 'Failed to update contract.');
+        }
     }
+
 
     /**
      * Remove the specified procurement contract from storage.
+     * CORRECTED Method
      *
      * @param  \App\Models\Accounting\ProcurementContract  $procurementContract
-     * @return \Illuminate\Http\Response
+     * @return \Illuminate\Http\RedirectResponse
      */
     public function destroy(ProcurementContract $procurementContract)
     {
-        // Only allow deletion of draft contracts
-        if ($procurementContract->status !== 'draft
-        public function destroy(ProcurementContract $procurementContract)
-    {
-        // Only allow deletion of draft contracts
-        if ($procurementContract->status !== 'draft') {
+        // Define deletable statuses
+        $deletableStatuses = ['draft']; // Usually only drafts can be truly deleted
+        if (!in_array($procurementContract->status, $deletableStatuses)) {
             return redirect()->route('accounting.procurement-contracts.show', $procurementContract)
-                ->with('error', 'Only draft contracts can be deleted.');
+                ->with('error', 'Only contracts with status: ' . implode(', ', $deletableStatuses) . ' can be deleted.');
         }
-        
+
+        // Add Authorization check: Gate::authorize('delete', $procurementContract);
+
+        // Optional: Add checks for related data (e.g., payments made against contract?)
+
         try {
             DB::beginTransaction();
-            
+
             // Delete document if exists
-            if ($procurementContract->document_path) {
+            if ($procurementContract->document_path && Storage::disk('public')->exists($procurementContract->document_path)) {
                 Storage::disk('public')->delete($procurementContract->document_path);
             }
-            
+
             // Delete the contract
             $procurementContract->delete();
-            
+
             DB::commit();
-            
+
             return redirect()->route('accounting.procurement-contracts.index')
                 ->with('success', 'Contract deleted successfully.');
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error("Contract Deletion Failed for ID {$procurementContract->id}: ".$e->getMessage());
             return back()->with('error', 'Failed to delete contract: ' . $e->getMessage());
         }
     }
+
 
     /**
      * Download contract document.
      *
      * @param  \App\Models\Accounting\ProcurementContract  $procurementContract
-     * @return \Illuminate\Http\Response
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse|\Illuminate\Http\RedirectResponse
      */
     public function download(ProcurementContract $procurementContract)
     {
         if (!$procurementContract->document_path || !Storage::disk('public')->exists($procurementContract->document_path)) {
-            return back()->with('error', 'Document not found.');
+            return back()->with('error', 'Document not found for this contract.');
         }
-        
-        return Storage::disk('public')->download(
-            $procurementContract->document_path, 
-            $procurementContract->contract_number . '_document.' . pathinfo($procurementContract->document_path, PATHINFO_EXTENSION)
-        );
+
+        try {
+            $path = $procurementContract->document_path;
+            $fileName = $procurementContract->contract_number . '_document.' . pathinfo($path, PATHINFO_EXTENSION);
+            return Storage::disk('public')->download($path, $fileName);
+        } catch (\Exception $e) {
+             Log::error("Contract Document Download Failed for ID {$procurementContract->id}: ".$e->getMessage());
+             return back()->with('error', 'Could not download the document.');
+        }
     }
-}
+
+} // End of ProcurementContractController class

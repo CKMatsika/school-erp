@@ -4,51 +4,58 @@ namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
 use App\Models\Accounting\Contact;
-use App\Models\Student; // Ensure this namespace is correct for your Student model
-use App\Models\School; // Assuming you need this for school_id context
+use App\Models\Student; // Ensure this namespace is correct
+// use App\Models\School; // Assuming not needed unless filtering schools differently
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth; // Import Auth facade
-use Illuminate\Support\Facades\Log; // Optional: For logging errors
-use Illuminate\Support\Facades\Schema; // To check if students table exists
-use Illuminate\Validation\Rule; // Make sure Rule is imported for validation
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Facades\Excel; // <-- Import Excel Facade
+use App\Imports\ContactsImport;      // <-- Import your Import class
+use Maatwebsite\Excel\Validators\ValidationException; // <-- Import ValidationException
+use Illuminate\Support\Facades\Response; // <-- For template download
+use Illuminate\Support\Facades\Validator; // <-- Import Validator Facade
 
 class ContactsController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Consider filtering by school if applicable
-        $school_id = Auth::user()?->school_id; // Get current user's school ID
-        $contacts = Contact::when($school_id, function ($query, $school_id) {
-                            return $query->where('school_id', $school_id);
-                        })
-                        ->orderBy('name')
-                        ->get(); // Using get() instead of paginate for simplicity now
+        $school_id = Auth::user()?->school_id;
+        $query = Contact::when($school_id, fn($q, $id) => $q->where('school_id', $id))
+                        ->when($request->filled('search'), function ($q) use ($request) {
+                             $term = '%' . $request->search . '%';
+                             $q->where(function($subq) use ($term){
+                                 $subq->where('name', 'like', $term)
+                                      ->orWhere('email', 'like', $term)
+                                      ->orWhere('phone', 'like', $term)
+                                      ->orWhere('tax_number', 'like', $term);
+                             });
+                        });
 
-        return view('accounting.contacts.index', compact('contacts'));
+        // Filter by type if provided in route parameter OR request query
+        $type = $request->route()->parameter('type') ?? $request->input('type');
+         $validTypes = ['customer', 'vendor', 'student'];
+         if ($type && in_array($type, $validTypes)) {
+             $query->where('contact_type', $type);
+         }
+
+        $contacts = $query->orderBy('name')->paginate(20)->withQueryString();
+
+        return view('accounting.contacts.index', compact('contacts', 'type'));
     }
 
     /**
      * Display a listing of contacts by type.
+     * (Redirects to the main index method with type filter)
      */
     public function indexByType($type)
     {
-        $validTypes = ['customer', 'vendor', 'student'];
-        if (!in_array($type, $validTypes)) {
-            return redirect()->route('accounting.contacts.index')->with('error', 'Invalid contact type specified.');
-        }
-
-        $school_id = Auth::user()?->school_id;
-        $contacts = Contact::where('contact_type', $type)
-                        ->when($school_id, function ($query, $school_id) {
-                            return $query->where('school_id', $school_id);
-                        })
-                        ->orderBy('name')
-                        ->get(); // Using get() instead of paginate
-
-        return view('accounting.contacts.index', compact('contacts', 'type'));
+        // Redirect to the index method, passing the type as a query parameter
+        return redirect()->route('accounting.contacts.index', ['type' => $type]);
     }
 
     /**
@@ -56,26 +63,22 @@ class ContactsController extends Controller
      */
     public function create()
     {
-        $students = collect(); // Default to an empty collection
-        try {
-            // Check if students table exists before querying
-            if (Schema::hasTable('students')) {
-                 // Fetch only necessary columns and order them
-                 $school_id = Auth::user()?->school_id;
-                 $students = Student::when($school_id, function($query, $school_id) {
-                                    return $query->where('school_id', $school_id);
-                                })
-                                ->orderBy('last_name') // Assuming student has last_name, first_name
-                                ->orderBy('first_name')
-                                ->where('is_active', true) // Usually only link active students
-                                ->get(['id', 'first_name', 'last_name', 'student_number']); // Adjust columns as needed
-            } else {
-                 Log::warning('ContactsController@create: Students table not found.');
-            }
-        } catch (\Exception $e) {
-            // Log error if query fails for any other reason
-            Log::error('ContactsController@create: Failed to fetch students. Error: ' . $e->getMessage());
-        }
+        $students = collect(); // Initialize as empty collection
+        // Attempt to load students only if the table likely exists and relationship is needed
+        // You might want to load this via AJAX instead if the list is very large
+        // try {
+        //     if (Schema::hasTable('students')) {
+        //          $school_id = Auth::user()?->school_id;
+        //          $students = Student::when($school_id, fn($q, $id) => $q->where('school_id', $id))
+        //                         ->orderBy('last_name')->orderBy('first_name')
+        //                         // ->where('is_active', true) // Uncomment if student model has is_active
+        //                         ->whereDoesntHave('accountingContact') // Only show students NOT already linked
+        //                         ->get(['id', 'first_name', 'last_name', 'middle_name', 'student_number']); // Select needed fields
+        //     }
+        // } catch (\Exception $e) {
+        //     Log::error("Error fetching students for contact form: " . $e->getMessage());
+        //     // Continue without students list, maybe show a warning
+        // }
 
         return view('accounting.contacts.create', compact('students'));
     }
@@ -85,42 +88,48 @@ class ContactsController extends Controller
      */
     public function store(Request $request)
     {
-        $validatedData = $request->validate([
-            'contact_type' => 'required|string|in:customer,vendor,student',
+        $school_id = Auth::user()?->school_id;
+        $validated = $request->validate([
+            'contact_type' => ['required', Rule::in(['customer', 'vendor', 'student'])],
             'name' => 'required|string|max:255',
-            'email' => 'nullable|email|max:255|unique:accounting_contacts,email', // Consider making email unique
-            'phone' => 'nullable|string|max:20', // Adjusted max length
-            'address' => 'nullable|string', // Removed max length for text area
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+                 Rule::unique('contacts')->where(function ($query) use ($school_id) {
+                     return $query->where('school_id', $school_id); // Scope uniqueness by school if needed
+                 })
+             ],
+            'phone' => 'nullable|string|max:50',
+            'tax_number' => 'nullable|string|max:100',
+            'address' => 'nullable|string',
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:50',
             'country' => 'nullable|string|max:100',
-            'tax_number' => 'nullable|string|max:50',
-            // *** MODIFIED VALIDATION: student_id is optional ***
-            'student_id' => 'nullable|exists:students,id',
+            'student_id' => 'nullable|required_if:contact_type,student|exists:students,id', // Required if type is student
+        ],[
+            'student_id.required_if' => 'Please select the corresponding student record when creating a student contact.'
         ]);
 
-        // Automatically assign school_id based on logged-in user
-        $schoolId = Auth::user()?->school_id; // Use null-safe operator
-
-        // Add school_id and default is_active to the validated data
-        $validatedData['school_id'] = $schoolId;
-        $validatedData['is_active'] = true; // Default new contacts to active
-
-        // Ensure student_id is null if empty string is passed
-         $validatedData['student_id'] = $request->filled('student_id') ? $validatedData['student_id'] : null;
+        // Add school ID if applicable
+        if ($school_id) {
+            $validated['school_id'] = $school_id;
+        }
+        $validated['is_active'] = true; // Default to active
 
         try {
-            $contact = Contact::create($validatedData);
+            $contact = Contact::create($validated);
 
-            return redirect()->route('accounting.contacts.index')
-                ->with('success', 'Contact "' . $contact->name . '" created successfully.'); // Added contact name
+            // If student type and student_id is set, potentially update student record too? (Or just link)
+            // Be careful about data synchronization if you duplicate info.
+
+            return redirect()->route('accounting.contacts.show', $contact)
+                       ->with('success', ucfirst($validated['contact_type']) . ' contact created successfully.');
 
         } catch (\Exception $e) {
-             Log::error('ContactsController@store: Failed to create contact. Error: ' . $e->getMessage());
-             return redirect()->back()
-                ->withInput() // Send input back to form
-                ->with('error', 'Failed to create contact. Please check the details and try again.');
+            Log::error("Contact Store failed: " . $e->getMessage());
+            return back()->withInput()->with('error', 'Failed to create contact.');
         }
     }
 
@@ -129,15 +138,8 @@ class ContactsController extends Controller
      */
     public function show(Contact $contact)
     {
-        // Optional: Add authorization check if users should only see contacts for their school
-        // $this->authorizeSchoolAccess($contact); // Implement this method if needed
-
-        $contact->load(['invoices' => function ($query) {
-            $query->orderBy('issue_date', 'desc'); // Order invoices
-        }, 'payments' => function ($query) {
-            $query->orderBy('payment_date', 'desc'); // Order payments
-        }, 'student']); // Eager load student if linked
-
+        // Add authorization check if needed: Gate::authorize('view', $contact);
+        $contact->load('student', 'invoices', 'payments'); // Eager load relationships
         return view('accounting.contacts.show', compact('contact'));
     }
 
@@ -146,30 +148,27 @@ class ContactsController extends Controller
      */
     public function edit(Contact $contact)
     {
-         // Optional: Add authorization check
-         // $this->authorizeSchoolAccess($contact); // Implement this method if needed
-
-        $students = collect(); // Default to empty
-        try {
-            if (Schema::hasTable('students')) {
-                 $school_id = Auth::user()?->school_id;
-                 $students = Student::when($school_id, function($query, $school_id) {
-                                    return $query->where('school_id', $school_id);
-                                })
-                                ->orderBy('last_name')
-                                ->orderBy('first_name')
-                                // Show active students + the currently linked one even if inactive
-                                ->where(function($query) use ($contact) {
-                                    $query->where('is_active', true)
-                                          ->orWhere('id', $contact->student_id);
-                                })
-                                ->get(['id', 'first_name', 'last_name', 'student_number']);
-            } else {
-                 Log::warning('ContactsController@edit: Students table not found.');
-            }
-        } catch (\Exception $e) {
-            Log::error('ContactsController@edit: Failed to fetch students. Error: ' . $e->getMessage());
-        }
+         // Add authorization check if needed: Gate::authorize('update', $contact);
+        $students = collect();
+        // Load students only if editing a student contact
+        // if ($contact->contact_type === 'student') {
+        //     try {
+        //         if (Schema::hasTable('students')) {
+        //             $school_id = Auth::user()?->school_id;
+        //             $students = Student::when($school_id, fn($q, $id) => $q->where('school_id', $id))
+        //                             ->orderBy('last_name')->orderBy('first_name')
+        //                             // ->where('is_active', true)
+        //                             // Show currently linked student + unlinked students
+        //                             ->where(function($q) use ($contact) {
+        //                                 $q->whereDoesntHave('accountingContact')
+        //                                   ->orWhere('id', $contact->student_id);
+        //                             })
+        //                             ->get(['id', 'first_name', 'last_name', 'middle_name', 'student_number']);
+        //         }
+        //     } catch (\Exception $e) {
+        //         Log::error("Error fetching students for contact edit: " . $e->getMessage());
+        //     }
+        // }
 
         return view('accounting.contacts.edit', compact('contact', 'students'));
     }
@@ -179,48 +178,44 @@ class ContactsController extends Controller
      */
     public function update(Request $request, Contact $contact)
     {
-        // Optional: Add authorization check
-        // $this->authorizeSchoolAccess($contact); // Implement this method if needed
+         // Add authorization check if needed: Gate::authorize('update', $contact);
+         $school_id = Auth::user()?->school_id;
 
-        $validatedData = $request->validate([
-            'contact_type' => 'required|string|in:customer,vendor,student',
+         $validated = $request->validate([
+            'contact_type' => ['required', Rule::in(['customer', 'vendor', 'student'])],
             'name' => 'required|string|max:255',
-            // Ensure unique email, ignoring the current contact
-            'email' => ['nullable', 'email', 'max:255', Rule::unique('accounting_contacts')->ignore($contact->id)],
-            'phone' => 'nullable|string|max:20',
+            'email' => [
+                'nullable',
+                'email',
+                'max:255',
+                 Rule::unique('contacts')->ignore($contact->id)->where(function ($query) use ($school_id) {
+                     return $query->where('school_id', $school_id); // Scope uniqueness by school
+                 })
+             ],
+            'phone' => 'nullable|string|max:50',
+            'tax_number' => 'nullable|string|max:100',
             'address' => 'nullable|string',
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:100',
-            'postal_code' => 'nullable|string|max:20',
+            'postal_code' => 'nullable|string|max:50',
             'country' => 'nullable|string|max:100',
-            'tax_number' => 'nullable|string|max:50',
-             // *** MODIFIED VALIDATION: student_id is optional ***
-            'student_id' => 'nullable|exists:students,id',
-            'is_active' => 'nullable|boolean', // Validation for boolean type
+            'student_id' => 'nullable|required_if:contact_type,student|exists:students,id',
+             'is_active' => 'boolean', // Allow updating status
         ]);
 
-         // Handle boolean 'is_active' checkbox - it's only present if checked
-        $validatedData['is_active'] = $request->has('is_active');
-
-        // Ensure student_id is null if empty string or if type is not student
-        if ($validatedData['contact_type'] !== 'student' || !$request->filled('student_id')) {
-             $validatedData['student_id'] = null;
-        } else {
-             $validatedData['student_id'] = $request->student_id; // Keep validated value
+        $validated['is_active'] = $request->boolean('is_active');
+        // Ensure student_id is null if contact_type is not student
+        if ($validated['contact_type'] !== 'student') {
+             $validated['student_id'] = null;
         }
 
-
         try {
-             $contact->update($validatedData);
-
-             return redirect()->route('accounting.contacts.index') // Consider redirecting to show page: route('accounting.contacts.show', $contact)
-                ->with('success', 'Contact "' . $contact->name . '" updated successfully.');
-
+            $contact->update($validated);
+             return redirect()->route('accounting.contacts.show', $contact)
+                       ->with('success', 'Contact updated successfully.');
         } catch (\Exception $e) {
-            Log::error('ContactsController@update: Failed to update contact ID ' . $contact->id . '. Error: ' . $e->getMessage());
-            return redirect()->back()
-                ->withInput()
-                ->with('error', 'Failed to update contact. Please check the details and try again.');
+            Log::error("Contact Update failed for ID {$contact->id}: " . $e->getMessage());
+            return back()->withInput()->with('error', 'Failed to update contact.');
         }
     }
 
@@ -229,39 +224,141 @@ class ContactsController extends Controller
      */
     public function destroy(Contact $contact)
     {
-        // Optional: Add authorization check
-        // $this->authorizeSchoolAccess($contact); // Implement this method if needed
+        // Add authorization check if needed: Gate::authorize('delete', $contact);
 
-        // More robust check: also check related financial transactions if applicable
-        if ($contact->invoices()->exists() || $contact->payments()->exists()) { // Use exists() for efficiency
+        // Prevent deletion if contact has transactions
+        if ($contact->invoices()->exists() || $contact->payments()->exists()) {
             return redirect()->route('accounting.contacts.index')
-                ->with('error', 'Contact cannot be deleted because it has associated invoices or payments.');
+                       ->with('error', 'Cannot delete contact with existing invoices or payments.');
         }
 
-         try {
-            $contactName = $contact->name; // Get name before deleting
-            $contact->delete();
+        try {
+            $contact->delete(); // Assuming Soft Deletes, otherwise use forceDelete()
+             return redirect()->route('accounting.contacts.index')
+                       ->with('success', 'Contact deleted successfully.');
+        } catch (\Exception $e) {
+             Log::error("Contact Delete failed for ID {$contact->id}: " . $e->getMessage());
+            return back()->with('error', 'Failed to delete contact.');
+        }
+    }
 
-            return redirect()->route('accounting.contacts.index')
-                ->with('success', 'Contact "' . $contactName . '" deleted successfully.');
+    // =============================================
+    // == Bulk Import Methods ==
+    // =============================================
+
+    /**
+     * Show the form for importing contacts.
+     */
+    public function showImportForm()
+    {
+        // Gate::authorize('import', Contact::class); // Add authorization check
+        return view('accounting.contacts.import');
+    }
+
+    /**
+     * Handle the uploaded contact file.
+     */
+    public function handleImport(Request $request)
+    {
+        // Gate::authorize('import', Contact::class);
+
+        $request->validate([
+            'contact_file' => 'required|file|mimes:xlsx,xls,csv|max:10240', // 10MB Max
+        ]);
+
+        $file = $request->file('contact_file');
+        $import = new ContactsImport(); // Instantiate the import class
+
+        try {
+            Excel::import($import, $file);
+
+            $importedCount = $import->getImportedCount();
+            $skippedRows = $import->getSkippedRows();
+            $totalProcessed = $import->getRowCount(); // This counts rows read
+
+            $message = "Import finished. Processed: {$totalProcessed} rows. Imported: {$importedCount} contacts successfully.";
+            $statusLevel = 'success';
+
+            if (!empty($skippedRows)) {
+                $message .= " Skipped: " . count($skippedRows) . " rows due to errors.";
+                session()->flash('import_errors', $skippedRows); // Store detailed errors
+                 // Change status level if there were skips
+                 $statusLevel = ($importedCount > 0) ? 'warning' : 'error';
+                 // Redirect back to form to show errors
+                 return redirect()->route('accounting.contacts.import.form')->with($statusLevel, $message); // CORRECTED: Added ');'
+            }
+
+            // If no errors, redirect to index
+            return redirect()->route('accounting.contacts.index')->with($statusLevel, $message); // CORRECTED: Use $statusLevel
+
+        } catch (ValidationException $e) {
+            // Catch validation exceptions from Laravel Excel
+            $failures = $e->failures();
+            $errorMessages = [];
+            foreach ($failures as $failure) {
+                 $errorMessages[] = [
+                     'row' => $failure->row(),
+                     'attribute' => $failure->attribute(),
+                     'errors' => $failure->errors(),
+                     'data' => $failure->values()
+                 ];
+            }
+             session()->flash('import_errors', $errorMessages);
+             return redirect()->route('accounting.contacts.import.form')
+                        ->with('error', 'Import failed due to validation errors in the file. Please check details below.');
 
         } catch (\Exception $e) {
-             Log::error('ContactsController@destroy: Failed to delete contact ID ' . $contact->id . '. Error: ' . $e->getMessage());
-            return redirect()->route('accounting.contacts.index')
-                ->with('error', 'Failed to delete contact.');
+            // Catch any other general exceptions during import
+             Log::error("Contact Import Failed: " . $e->getMessage());
+             return redirect()->route('accounting.contacts.import.form')
+                        ->with('error', 'An unexpected error occurred during import: ' . $e->getMessage());
         }
     }
 
     /**
-     * Helper function for authorization (Example)
-     * Implement proper authorization (Policies/Gates) for real applications.
+     * Download a template file (CSV) for contact import.
+     *
+     * @return \Symfony\Component\HttpFoundation\StreamedResponse
      */
-    // protected function authorizeSchoolAccess(Contact $contact)
-    // {
-    //     $userSchoolId = Auth::user()?->school_id;
-    //     if ($userSchoolId && $contact->school_id !== $userSchoolId) {
-    //         abort(403, 'Unauthorized action.'); // Or redirect with error
-    //     }
-    //     // Add more checks if needed (e.g., roles/permissions)
-    // }
-}
+    public function downloadTemplate()
+    {
+        $headers = [
+            'name', 'contact_type', 'email', 'phone', 'tax_number',
+            'address', 'city', 'state', 'postal_code', 'country',
+            // 'student_identifier' // Example if using this for student linking
+        ];
+        $example = [
+            'Sample Customer Inc.', 'customer', 'customer@example.com', '555-1234', 'VAT123',
+            '456 Business Ave', 'Busytown', 'BizState', '54321', 'Sample Country',
+            // '' // Leave student identifier blank for non-student
+        ];
+         $example2 = [
+            'Sample Vendor Ltd.', 'vendor', 'vendor@example.com', '555-5678', 'VEN987',
+            '789 Supply Rd', 'Metropolis', 'MetroState', '98765', 'Sample Country',
+            // ''
+        ];
+         $example3 = [
+            'Student Name Example', 'student', 'student.contact@example.com', '555-1122', '',
+            '1 School Lane', 'Anytown', 'Anystate', '12345', 'Sample Country',
+             // 'S-001' // Add Example Student ID/Number if using linking
+        ];
+
+        $filename = "contact_import_template.csv";
+
+        $callback = function() use ($headers, $example, $example2, $example3) {
+            $handle = fopen('php://output', 'w');
+            fputcsv($handle, $headers);
+            fputcsv($handle, $example);
+            fputcsv($handle, $example2);
+            fputcsv($handle, $example3);
+            fclose($handle);
+        };
+
+        // Use Response facade directly
+        return Response::stream($callback, 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+} // End of ContactsController class
