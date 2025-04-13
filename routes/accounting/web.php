@@ -87,13 +87,21 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::resource('payment-methods', PaymentMethodController::class);
 
     // == Contacts ==
-    // --- Bulk Import Routes ---
-    Route::get('/contacts/import', [ContactsController::class, 'showImportForm'])->name('contacts.import.form');
-    Route::post('/contacts/import', [ContactsController::class, 'handleImport'])->name('contacts.import.handle');
-    Route::get('/contacts/import/template', [ContactsController::class, 'downloadTemplate'])->name('contacts.import.template');
+    // --- Bulk Import Routes (Define BEFORE resource route) ---
+    Route::get('contacts/import/form', [ContactsController::class, 'showImportForm'])
+         ->name('contacts.import.form');
+    Route::post('contacts/import/handle', [ContactsController::class, 'handleImport'])
+         ->name('contacts.import.handle');
+    Route::get('contacts/import/template', [ContactsController::class, 'downloadTemplate'])
+         ->name('contacts.import.template');
     // --- Standard Contact Routes ---
-    Route::resource('contacts', ContactsController::class);
-    Route::get('contacts/type/{type}', [ContactsController::class, 'indexByType'])->name('contacts.type');
+    // Use optional parameter {type?} for index filtering
+    Route::get('contacts/{type?}', [ContactsController::class, 'index'])
+         ->whereIn('type', ['customer', 'vendor', 'student']) // Optional: Constrain type parameter
+         ->name('contacts.index');
+    // Resource routes for create, store, show, edit, update, destroy (excluding index)
+    Route::resource('contacts', ContactsController::class)->except(['index']);
+    // REMOVED: Route::get('contacts/type/{type}', [ContactsController::class, 'indexByType'])->name('contacts.type'); (Now handled by index)
     // == End Contacts ==
 
     // Invoices & Payments
@@ -113,8 +121,8 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
 
     // Payment Plans
     Route::resource('payment-plans', PaymentPlanController::class);
-    Route::get('payment-plans/{paymentPlan}/schedule', [PaymentPlanController::class, 'viewSchedule'])->name('payment-plans.schedule'); // Adjusted parameter
-    Route::post('payment-plans/{paymentPlan}/generate-schedule', [PaymentPlanController::class, 'generateSchedule'])->name('payment-plans.generate-schedule'); // Adjusted parameter
+    Route::get('payment-plans/{paymentPlan}/schedule', [PaymentPlanController::class, 'viewSchedule'])->name('payment-plans.schedule');
+    Route::post('payment-plans/{paymentPlan}/generate-schedule', [PaymentPlanController::class, 'generateSchedule'])->name('payment-plans.generate-schedule');
 
     // Journals
     Route::resource('journals', JournalsController::class);
@@ -137,40 +145,40 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::get('suppliers/{supplier}/performance', [SupplierController::class, 'performance'])->name('suppliers.performance');
     Route::resource('item-categories', ItemCategoryController::class);
     Route::resource('inventory-items', InventoryItemController::class);
-    Route::get('inventory-items/{item}/stock-history', [InventoryItemController::class, 'stockHistory'])->name('inventory-items.stock-history');
-    // Purchase Requests (Using Route Model Binding - parameters adjusted)
+    Route::get('inventory-items/{inventoryItem}/stock-history', [InventoryItemController::class, 'stockHistory'])->name('inventory-items.stock-history'); // Corrected parameter name
+    // Purchase Requests
+    Route::resource('purchase-requests', PurchaseRequestController::class); // Define resource first
     Route::get('purchase-requests/{purchaseRequest}/items', [PurchaseRequestController::class, 'items'])->name('purchase-requests.items');
     Route::post('purchase-requests/{purchaseRequest}/items', [PurchaseRequestController::class, 'storeItem'])->name('purchase-requests.items.store');
-    Route::delete('purchase-requests/{purchaseRequest}/items/{item}', [PurchaseRequestController::class, 'destroyItem'])->name('purchase-requests.items.destroy');
+    Route::delete('purchase-requests/{purchaseRequest}/items/{purchaseRequestItem}', [PurchaseRequestController::class, 'destroyItem'])->name('purchase-requests.items.destroy'); // Adjusted parameter name if needed
     Route::post('purchase-requests/{purchaseRequest}/submit', [PurchaseRequestController::class, 'submit'])->name('purchase-requests.submit');
     Route::post('purchase-requests/{purchaseRequest}/approve', [PurchaseRequestController::class, 'approve'])->name('purchase-requests.approve');
     Route::post('purchase-requests/{purchaseRequest}/reject', [PurchaseRequestController::class, 'reject'])->name('purchase-requests.reject');
-    Route::resource('purchase-requests', PurchaseRequestController::class); // Keep resource route last for this group
-    // Purchase Orders (Using Route Model Binding)
+    // Purchase Orders
+    Route::resource('purchase-orders', PurchaseOrderController::class); // Define resource first
     Route::get('purchase-orders/{purchaseOrder}/items', [PurchaseOrderController::class, 'items'])->name('purchase-orders.items');
     Route::post('purchase-orders/{purchaseOrder}/items', [PurchaseOrderController::class, 'storeItem'])->name('purchase-orders.items.store');
-    Route::delete('purchase-orders/{purchaseOrder}/items/{item}', [PurchaseOrderController::class, 'destroyItem'])->name('purchase-orders.items.destroy');
+    Route::delete('purchase-orders/{purchaseOrder}/items/{purchaseOrderItem}', [PurchaseOrderController::class, 'destroyItem'])->name('purchase-orders.items.destroy'); // Adjusted parameter name if needed
     Route::post('purchase-orders/{purchaseOrder}/submit', [PurchaseOrderController::class, 'submit'])->name('purchase-orders.submit');
     Route::post('purchase-orders/{purchaseOrder}/approve', [PurchaseOrderController::class, 'approve'])->name('purchase-orders.approve');
     Route::post('purchase-orders/{purchaseOrder}/issue', [PurchaseOrderController::class, 'issue'])->name('purchase-orders.issue');
     Route::get('purchase-orders/{purchaseOrder}/print', [PurchaseOrderController::class, 'print'])->name('purchase-orders.print');
-    Route::resource('purchase-orders', PurchaseOrderController::class); // Keep resource route last
-    // Goods Receipt (Using Route Model Binding)
+    // Goods Receipt
+    Route::resource('goods-receipts', GoodsReceiptController::class); // Define resource first
     Route::get('goods-receipts/{goodsReceipt}/items', [GoodsReceiptController::class, 'items'])->name('goods-receipts.items');
     Route::put('goods-receipts/{goodsReceipt}/items', [GoodsReceiptController::class, 'updateItems'])->name('goods-receipts.items.update');
     Route::post('goods-receipts/{goodsReceipt}/complete', [GoodsReceiptController::class, 'complete'])->name('goods-receipts.complete');
-    Route::resource('goods-receipts', GoodsReceiptController::class); // Keep resource route last
-    // Procurement Contracts (Using Route Model Binding)
+    // Procurement Contracts
+    Route::resource('procurement-contracts', ProcurementContractController::class); // Define resource first
     Route::get('procurement-contracts/{procurementContract}/download', [ProcurementContractController::class, 'download'])->name('procurement-contracts.download');
-    Route::resource('procurement-contracts', ProcurementContractController::class); // Keep resource route last
-    // Tenders (Using Route Model Binding)
+    // Tenders
+    Route::resource('tenders', TenderController::class); // Define resource first
     Route::get('tenders/{tender}/bids', [TenderController::class, 'bids'])->name('tenders.bids');
     Route::post('tenders/{tender}/bids', [TenderController::class, 'storeBid'])->name('tenders.bids.store');
     Route::delete('tenders/{tender}/bids/{bid}', [TenderController::class, 'destroyBid'])->name('tenders.bids.destroy');
     Route::post('tenders/{tender}/award', [TenderController::class, 'award'])->name('tenders.award');
     Route::get('tenders/{tender}/download', [TenderController::class, 'download'])->name('tenders.download');
     Route::get('tenders/{tender}/bids/{bid}/download', [TenderController::class, 'downloadBid'])->name('tenders.bid.download');
-    Route::resource('tenders', TenderController::class); // Keep resource route last
     // === End Procurement & Inventory Management ===
 
     // === Setup ===
@@ -212,11 +220,11 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::get('/cashier/sessions/{session}/report', [CashierDashboardController::class, 'sessionReport'])->name('cashier.session-report');
 
     // === Budget Management ===
-    Route::resource('budgets', BudgetController::class); // Non-CAPEX
+    Route::resource('budgets', BudgetController::class); // Define resource first
     Route::get('budgets/{budget}/items', [BudgetController::class, 'showItems'])->name('budgets.items');
     Route::post('budgets/{budget}/items', [BudgetController::class, 'storeItem'])->name('budgets.items.store');
     Route::post('budgets/{budget}/approve-status', [BudgetController::class, 'approveStatus'])->name('budgets.approve-status');
-    Route::resource('capex-projects', CapexBudgetController::class)->parameters(['capex-projects' => 'capexProject']); // Keep simple resource for CAPEX
+    Route::resource('capex-projects', CapexBudgetController::class)->parameters(['capex-projects' => 'capexProject']);
     // === End Budget Management ===
 
     // Debtors & Creditors
@@ -234,37 +242,35 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::get('reports/tax', [ReportsController::class, 'tax'])->name('reports.tax');
     Route::get('reports/student-balances', [ReportsController::class, 'studentBalances'])->name('reports.student-balances');
     Route::get('reports/budget-vs-actual', [ReportsController::class, 'budgetVsActual'])->name('reports.budget-vs-actual');
-    // Route::get('reports/procurement-summary', [ReportsController::class, 'procurementSummary'])->name('reports.procurement-summary');
-    // Route::get('reports/inventory-valuation', [ReportsController::class, 'inventoryValuation'])->name('reports.inventory-valuation');
-    // Route::get('reports/supplier-spend', [ReportsController::class, 'supplierSpend'])->name('reports.supplier-spend');
-    // Route::get('reports/payroll-summary', [ReportsController::class, 'payrollSummary'])->name('reports.payroll-summary');
-    // Route::get('reports/attendance-summary', [ReportsController::class, 'attendanceSummary'])->name('reports.attendance-summary');
+    // Add other report routes as needed...
 
     // Notifications & SMS
     Route::resource('notifications', NotificationsController::class)->only(['index', 'show']);
-    Route::get('sms/gateways', [SmsController::class, 'gateways'])->name('sms.gateways');
-    Route::get('sms/templates', [SmsController::class, 'templates'])->name('sms.templates');
-    Route::get('sms/logs', [SmsController::class, 'logs'])->name('sms.logs');
-    Route::get('sms/send', [SmsController::class, 'showSendForm'])->name('sms.send');
-    Route::post('sms/send', [SmsController::class, 'processSend'])->name('sms.process-send');
-    
-    // SMS Gateways CRUD routes
-    Route::get('sms/gateways/create', [SmsController::class, 'createGateway'])->name('sms.gateways.create');
-    Route::post('sms/gateways', [SmsController::class, 'storeGateway'])->name('sms.gateways.store');
-    Route::get('sms/gateways/{gateway}/edit', [SmsController::class, 'editGateway'])->name('sms.gateways.edit');
-    Route::put('sms/gateways/{gateway}', [SmsController::class, 'updateGateway'])->name('sms.gateways.update');
-    Route::delete('sms/gateways/{gateway}', [SmsController::class, 'destroyGateway'])->name('sms.gateways.destroy');
+    Route::prefix('sms')->name('sms.')->group(function () { // Group SMS routes
+        Route::get('/gateways', [SmsController::class, 'gateways'])->name('gateways');
+        Route::get('/templates', [SmsController::class, 'templates'])->name('templates');
+        Route::get('/logs', [SmsController::class, 'logs'])->name('logs');
+        Route::get('/send', [SmsController::class, 'showSendForm'])->name('send');
+        Route::post('/send', [SmsController::class, 'processSend'])->name('process-send'); // Match showSendForm URL
 
-    // SMS Templates CRUD routes
-    Route::get('sms/templates/create', [SmsController::class, 'createTemplate'])->name('sms.templates.create');
-    Route::post('sms/templates', [SmsController::class, 'storeTemplate'])->name('sms.templates.store');
-    Route::get('sms/templates/{template}/edit', [SmsController::class, 'editTemplate'])->name('sms.templates.edit');
-    Route::put('sms/templates/{template}', [SmsController::class, 'updateTemplate'])->name('sms.templates.update');
-    Route::delete('sms/templates/{template}', [SmsController::class, 'destroyTemplate'])->name('sms.templates.destroy');
+        // SMS Gateways CRUD
+        Route::get('/gateways/create', [SmsController::class, 'createGateway'])->name('gateways.create');
+        Route::post('/gateways', [SmsController::class, 'storeGateway'])->name('gateways.store');
+        Route::get('/gateways/{gateway}/edit', [SmsController::class, 'editGateway'])->name('gateways.edit');
+        Route::put('/gateways/{gateway}', [SmsController::class, 'updateGateway'])->name('gateways.update');
+        Route::delete('/gateways/{gateway}', [SmsController::class, 'destroyGateway'])->name('gateways.destroy');
+
+        // SMS Templates CRUD
+        Route::get('/templates/create', [SmsController::class, 'createTemplate'])->name('templates.create');
+        Route::post('/templates', [SmsController::class, 'storeTemplate'])->name('templates.store');
+        Route::get('/templates/{template}/edit', [SmsController::class, 'editTemplate'])->name('templates.edit');
+        Route::put('/templates/{template}', [SmsController::class, 'updateTemplate'])->name('templates.update');
+        Route::delete('/templates/{template}', [SmsController::class, 'destroyTemplate'])->name('templates.destroy');
+    });
 
     // Student Ledger
     Route::get('student-ledger', [StudentLedgerController::class, 'index'])->name('student-ledger.index');
-    Route::get('student-ledger/{contact}', [StudentLedgerController::class, 'show'])->name('student-ledger.show');
+    Route::get('student-ledger/{contact}', [StudentLedgerController::class, 'show'])->name('student-ledger.show'); // Assuming contact model binding
     Route::get('student-ledger/{contact}/statement', [StudentLedgerController::class, 'generateStatement'])->name('student-ledger.statement');
 
 }); // End Accounting Group
@@ -275,11 +281,11 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
 Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
 
     // Staff Management
+    Route::resource('staff', StaffController::class); // Define resource first
     Route::get('staff/{staff}/assign-subjects', [StaffController::class, 'assignSubjectsForm'])->name('staff.assign-subjects.form');
     Route::post('staff/{staff}/assign-subjects', [StaffController::class, 'syncSubjects'])->name('staff.assign-subjects.sync');
     Route::get('staff/{staff}/assign-classes', [StaffController::class, 'assignClassesForm'])->name('staff.assign-classes.form');
     Route::post('staff/{staff}/assign-classes', [StaffController::class, 'syncClasses'])->name('staff.assign-classes.sync');
-    Route::resource('staff', StaffController::class); // Keep resource last
 
     // Attendance Management
     Route::get('attendance', [AttendanceController::class, 'index'])->name('attendance.index');
@@ -289,23 +295,24 @@ Route::middleware(['auth'])->prefix('hr')->name('hr.')->group(function () {
     Route::get('attendance/reports/generate', [AttendanceController::class, 'generateReport'])->name('attendance.reports.generate');
 
     // Payroll Management
-    // Elements
-    Route::get('payroll/elements', [PayrollController::class, 'elementsIndex'])->name('payroll.elements.index');
-    // Assuming PayrollController handles element CRUD for simplicity, else separate controller
-    Route::get('payroll/elements/create', [PayrollController::class, 'elementsCreate'])->name('payroll.elements.create'); // Explicit route
-    Route::post('payroll/elements', [PayrollController::class, 'elementsStore'])->name('payroll.elements.store'); // Matches index form
-    Route::get('payroll/elements/{element}/edit', [PayrollController::class, 'elementsEdit'])->name('payroll.elements.edit');
-    Route::put('payroll/elements/{element}', [PayrollController::class, 'elementsUpdate'])->name('payroll.elements.update');
-    Route::delete('payroll/elements/{element}', [PayrollController::class, 'elementsDestroy'])->name('payroll.elements.destroy');
-    // Assignments
-    Route::get('payroll/staff-assignments/{staff}', [PayrollController::class, 'staffAssignments'])->name('payroll.assignments.staff');
-    Route::post('payroll/staff-assignments/{staff}', [PayrollController::class, 'syncAssignments'])->name('payroll.assignments.sync');
-    // Processing & Payslips
-    Route::get('payroll/process', [PayrollController::class, 'showProcessForm'])->name('payroll.process.form');
-    Route::post('payroll/process', [PayrollController::class, 'runPayroll'])->name('payroll.process.run');
-    Route::get('payroll/payslips', [PayrollController::class, 'payslipsIndex'])->name('payroll.payslips.index');
-    Route::get('payroll/payslips/{payslip}', [PayrollController::class, 'payslipShow'])->name('payroll.payslips.show');
-    Route::post('payroll/payslips/{payslip}/post', [PayrollController::class, 'postToJournal'])->name('payroll.payslips.post');
+    Route::prefix('payroll')->name('payroll.')->group(function () { // Group payroll routes
+        // Elements
+        Route::get('/elements', [PayrollController::class, 'elementsIndex'])->name('elements.index');
+        Route::get('/elements/create', [PayrollController::class, 'elementsCreate'])->name('elements.create');
+        Route::post('/elements', [PayrollController::class, 'elementsStore'])->name('elements.store');
+        Route::get('/elements/{element}/edit', [PayrollController::class, 'elementsEdit'])->name('elements.edit');
+        Route::put('/elements/{element}', [PayrollController::class, 'elementsUpdate'])->name('elements.update');
+        Route::delete('/elements/{element}', [PayrollController::class, 'elementsDestroy'])->name('elements.destroy');
+        // Assignments
+        Route::get('/staff-assignments/{staff}', [PayrollController::class, 'staffAssignments'])->name('assignments.staff');
+        Route::post('/staff-assignments/{staff}', [PayrollController::class, 'syncAssignments'])->name('assignments.sync');
+        // Processing & Payslips
+        Route::get('/process', [PayrollController::class, 'showProcessForm'])->name('process.form');
+        Route::post('/process', [PayrollController::class, 'runPayroll'])->name('process.run');
+        Route::get('/payslips', [PayrollController::class, 'payslipsIndex'])->name('payslips.index');
+        Route::get('/payslips/{payslip}', [PayrollController::class, 'payslipShow'])->name('payslips.show');
+        Route::post('/payslips/{payslip}/post', [PayrollController::class, 'postToJournal'])->name('payslips.post');
+    });
 
 }); // End HR Group
 
@@ -323,7 +330,7 @@ Route::middleware(['auth'])->prefix('students')->name('students.')->group(functi
     Route::get('/promotion', [StudentPromotionController::class, 'index'])->name('promotion');
     Route::post('/promotion', [StudentPromotionController::class, 'promote'])->name('promotion.process');
 
-    // Basic student index (redirects for now)
+    // Basic student index (consider linking to a real student listing if available)
     Route::get('/', function() { return redirect()->route('accounting.dashboard'); })->name('index');
 }); // End Students Group
 
@@ -331,11 +338,14 @@ Route::middleware(['auth'])->prefix('students')->name('students.')->group(functi
 // == Dashboard Routes ==
 // =============================================
 Route::middleware(['auth'])->group(function () {
-    // Dashboard routes
+    // Dashboard routes (assuming these are top-level or defined elsewhere)
     Route::get('/headmaster', [HeadmasterDashboardController::class, 'index'])->name('headmaster.dashboard');
     Route::get('/deputy', [DeputyDashboardController::class, 'index'])->name('deputy.dashboard');
+
+    // Add your default dashboard or other top-level authenticated routes here if needed
+    // Example: Route::get('/dashboard', function () { ... })->name('dashboard');
+
 });
 
-// Note: Ensure the main routes/web.php includes this file if it's separate
-// e.g., require __DIR__.'/accounting/web.php';
-// Also ensure HR routes are included similarly or defined in routes/web.php directly
+// Note: Include default Laravel auth routes if needed
+// require __DIR__.'/auth.php';
