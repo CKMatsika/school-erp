@@ -11,7 +11,7 @@ class Contact extends Model
 {
     use HasFactory;
 
-    protected $table = 'accounting_contacts';
+    protected $table = 'contacts';
 
     protected $fillable = [
         'school_id',

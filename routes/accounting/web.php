@@ -191,14 +191,13 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
 
     // === POS Terminals & Sessions ===
     Route::resource('pos/terminals', PosTerminalController::class)->parameters(['terminals' => 'terminal']);
+    Route::get('pos/terminals/setup-test', [PosTerminalController::class, 'setupTest'])->name('pos.terminals.setup-test');
     Route::get('pos/sessions', [PosSessionController::class, 'index'])->name('pos.sessions.index');
     Route::get('pos/sessions/create', [PosSessionController::class, 'create'])->name('pos.sessions.create');
-    Route::post('pos/sessions', [PosSessionController::class, 'store'])->name('pos.sessions.store');
+    Route::post('pos/sessions/start', [PosSessionController::class, 'startSession'])->name('pos.sessions.start');
     Route::get('pos/sessions/{session}', [PosSessionController::class, 'show'])->name('pos.sessions.show');
-    Route::get('pos/sessions/{session}/end', [PosSessionController::class, 'end'])->name('pos.sessions.end');
-    Route::post('pos/sessions/{session}/close', [PosSessionController::class, 'close'])->name('pos.sessions.close');
-    Route::post('pos/sessions/{session}/approve', [PosSessionController::class, 'approve'])->name('pos.sessions.approve');
-
+    Route::get('pos/sessions/{session}/end', [PosSessionController::class, 'endSession'])->name('pos.sessions.end');
+    Route::post('pos/sessions/{session}/close', [PosSessionController::class, 'closeSession'])->name('pos.sessions.close');
     // === POS Payments ===
     Route::get('pos/payments', [PosPaymentController::class, 'index'])->name('pos.payments.index');
     Route::get('pos/payment/form', [PosPaymentController::class, 'showForm'])->name('pos.payment.form');
@@ -211,7 +210,6 @@ Route::middleware(['auth'])->prefix('accounting')->name('accounting.')->group(fu
     Route::get('/cashier/sessions/{session}/end', [CashierDashboardController::class, 'endSession'])->name('cashier.end-session');
     Route::post('/cashier/sessions/{session}/close', [CashierDashboardController::class, 'closeSession'])->name('cashier.close-session');
     Route::get('/cashier/sessions/{session}/report', [CashierDashboardController::class, 'sessionReport'])->name('cashier.session-report');
-    // === End POS & Cashier Routes ===
 
     // === Budget Management ===
     Route::resource('budgets', BudgetController::class); // Non-CAPEX

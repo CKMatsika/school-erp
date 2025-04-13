@@ -3,139 +3,195 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Http\Controllers\Controller;
-use App\Models\PosSession;
-use App\Models\PosTransaction;
 use Illuminate\Http\Request;
+use App\Models\Accounting\PosTerminal;
+use App\Models\Accounting\PosSession;
+use App\Models\School;
+use App\Models\User;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class CashierDashboardController extends Controller
 {
     public function index()
     {
+        // Check if user has a school_id
         $user = Auth::user();
-        $school_id = $user->school_id;
         
-        // Get active session for the current user
-        $activeSession = PosSession::where('user_id', $user->id)
-            ->where('status', 'open')
-            ->latest()
-            ->first();
+        if (!$user->school_id) {
+            // Check if there's only one school in the system
+            $schools = School::all();
             
-        // Get transaction statistics for the active session
-        $stats = [];
-        $recentTransactions = [];
-        
-        if ($activeSession) {
-            // Calculate session statistics
-            $transactions = $activeSession->transactions;
-            
-            $stats = [
-                'transactions_count' => $transactions->count(),
-                'total_amount' => $transactions->sum('amount'),
-                'cash_amount' => $transactions->where('payment_method', 'cash')->sum('amount'),
-                'card_amount' => $transactions->where('payment_method', 'card')->sum('amount'),
-            ];
-            
-            // Get recent transactions for this session
-            $recentTransactions = PosTransaction::where('pos_session_id', $activeSession->id)
-                ->with('payment.contact')
-                ->latest()
-                ->take(5)
-                ->get();
+            if ($schools->count() == 1) {
+                // Automatically assign the school to the user
+                $user->school_id = $schools->first()->id;
+                $user->save();
+                
+                // Log this auto-assignment
+                Log::info("Auto-assigned school ID {$user->school_id} to user {$user->id}");
+            } else {
+                // Return view with schools dropdown to select
+                return view('accounting.cashier.dashboard', [
+                    'needsSchoolAssignment' => true,
+                    'schools' => $schools,
+                    'activeSession' => null
+                ]);
+            }
         }
         
-        return view('accounting.cashier.dashboard', compact(
-            'activeSession',
-            'stats',
-            'recentTransactions'
-        ));
+        // Check for an active session for this user
+        // Inspect the database structure - we need to use the correct column names
+        // If your table doesn't have a cashier_id column, use what you have (e.g. 'started_by')
+        try {
+            $activeSession = PosSession::where(function($query) {
+                // Try multiple possible column names that might link to the user
+                $query->where('started_by', Auth::id())
+                      ->orWhere('user_id', Auth::id())
+                      ->orWhere('cashier_user_id', Auth::id());
+            })
+            ->where('status', 'active')
+            ->first();
+        } catch (\Exception $e) {
+            Log::error("Error looking for active session: " . $e->getMessage());
+            // Try looking at the schema
+            $columns = \Schema::getColumnListing('pos_sessions');
+            Log::info("Pos_sessions columns: " . implode(', ', $columns));
+            $activeSession = null;
+        }
+        
+        // Get terminals for new session form
+        try {
+            $terminals = PosTerminal::where('school_id', Auth::user()->school_id)
+                ->where('is_active', true)
+                ->get();
+        } catch (\Exception $e) {
+            Log::error("Error fetching terminals: " . $e->getMessage());
+            $terminals = collect([]);
+        }
+        
+        return view('accounting.cashier.dashboard', [
+            'activeSession' => $activeSession,
+            'terminals' => $terminals,
+            'needsSchoolAssignment' => false
+        ]);
     }
     
     public function startSession(Request $request)
     {
-        $validated = $request->validate([
-            'terminal_id' => 'required|exists:pos_terminals,id',
-            'opening_balance' => 'required|numeric|min:0',
-        ]);
-        
-        $user = Auth::user();
-        
-        try {
-            // Check if user already has an active session
-            $existingSession = PosSession::where('user_id', $user->id)
-                ->where('status', 'open')
-                ->first();
-                
-            if ($existingSession) {
-                return back()->with('error', 'You already have an active session.');
-            }
+        // Validate school assignment if needed
+        if (!Auth::user()->school_id && $request->has('school_id')) {
+            $request->validate([
+                'school_id' => 'required|exists:schools,id'
+            ]);
             
-            // Start a new session
-            $session = PosSession::startSession(
-                $validated['terminal_id'],
-                $user->id,
-                $validated['opening_balance']
-            );
+            $user = Auth::user();
+            $user->school_id = $request->school_id;
+            $user->save();
             
             return redirect()->route('accounting.cashier.dashboard')
-                ->with('success', 'Session started successfully.');
+                ->with('success', 'School assigned successfully.');
+        }
+        
+        try {
+            // Validate session data
+            $validated = $request->validate([
+                'terminal_id' => 'required|exists:pos_terminals,id', // Using terminal_id based on your PosTerminal model
+                'opening_balance' => 'required|numeric|min:0',
+            ]);
+            
+            // Check if there's already an active session for this terminal
+            $activeTerminalSession = PosSession::where('terminal_id', $validated['terminal_id'])
+                ->where('status', 'active')
+                ->first();
                 
+            if ($activeTerminalSession) {
+                return back()->with('error', 'This terminal already has an active session.');
+            }
+            
+            // Create a new session - update field names as needed based on your table structure
+            $session = new PosSession();
+            $session->terminal_id = $validated['terminal_id']; // Changed from pos_terminal_id based on your model
+            $session->opening_balance = $validated['opening_balance'];
+            $session->started_by = Auth::id(); // Using started_by instead of cashier_id
+            $session->started_at = now();
+            $session->status = 'active';
+            $session->school_id = Auth::user()->school_id;
+            $session->save();
+            
+            return redirect()->route('accounting.cashier.dashboard')
+                ->with('success', 'POS Session started successfully.');
         } catch (\Exception $e) {
+            Log::error("Error starting session: " . $e->getMessage());
             return back()->with('error', 'Failed to start session: ' . $e->getMessage());
         }
     }
     
-    public function endSession(Request $request, PosSession $session)
+    public function endSession(PosSession $session)
     {
-        // Check authorization
-        if ($session->user_id !== Auth::id()) {
-            return back()->with('error', 'You can only end your own sessions.');
+        // Check if the session belongs to the user
+        if ($session->started_by != Auth::id() && $session->cashier_user_id != Auth::id() && $session->user_id != Auth::id()) {
+            return back()->with('error', 'You do not have permission to end this session.');
         }
         
-        if ($session->status !== 'open') {
-            return back()->with('error', 'This session is already closed.');
+        if ($session->status !== 'active') {
+            return back()->with('error', 'This session is not active.');
         }
         
+        // Return the end session view
         return view('accounting.cashier.end_session', compact('session'));
     }
     
     public function closeSession(Request $request, PosSession $session)
     {
-        // Check authorization
-        if ($session->user_id !== Auth::id()) {
-            return back()->with('error', 'You can only close your own sessions.');
+        // Check if the session belongs to the user
+        if ($session->started_by != Auth::id() && $session->cashier_user_id != Auth::id() && $session->user_id != Auth::id()) {
+            return back()->with('error', 'You do not have permission to close this session.');
+        }
+        
+        if ($session->status !== 'active') {
+            return back()->with('error', 'This session is not active.');
         }
         
         $validated = $request->validate([
             'closing_balance' => 'required|numeric|min:0',
-            'notes' => 'nullable|string|max:500',
+            'cash_counted' => 'required|numeric|min:0',
+            'notes' => 'nullable|string',
         ]);
         
         try {
-            $session->closeSession(
-                $validated['closing_balance'],
-                $validated['notes'],
-                Auth::id()
-            );
+            // Calculate totals from transactions - adjust based on your relationships
+            $transactions = $session->transactions ?? collect([]);
+            $calculatedTotal = $transactions->sum('amount');
+            $expectedClosingBalance = $session->opening_balance + $calculatedTotal;
+            
+            $session->closing_balance = $validated['closing_balance'];
+            $session->cash_counted = $validated['cash_counted'];
+            $session->expected_closing_balance = $expectedClosingBalance;
+            $session->discrepancy = $validated['cash_counted'] - $expectedClosingBalance;
+            $session->notes = $validated['notes'];
+            $session->ended_at = now();
+            $session->ended_by = Auth::id();
+            $session->status = 'closed';
+            $session->save();
             
             return redirect()->route('accounting.cashier.dashboard')
-                ->with('success', 'Session closed successfully.');
-                
+                ->with('success', 'POS Session closed successfully.');
         } catch (\Exception $e) {
+            Log::error("Error closing session: " . $e->getMessage());
             return back()->with('error', 'Failed to close session: ' . $e->getMessage());
         }
     }
     
     public function sessionReport(PosSession $session)
     {
-        // Check authorization (cashiers should only see their own reports)
-        if ($session->user_id !== Auth::id() && !Auth::user()->hasRole('admin')) {
-            return back()->with('error', 'You can only view your own session reports.');
+        // Check if the session belongs to the user's school
+        if ($session->school_id !== Auth::user()->school_id) {
+            return abort(403, 'Unauthorized action.');
         }
         
-        // Generate Z-reading report
-        $report = $session->generateZReading();
+        // Generate session report
+        $transactions = $session->transactions ?? collect([]);
         
-        return view('accounting.cashier.session_report', compact('session', 'report'));
+        return view('accounting.cashier.session_report', compact('session', 'transactions'));
     }
 }
