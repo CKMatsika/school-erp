@@ -4,8 +4,9 @@ namespace App\Http\Controllers\HumanResources;
 
 use App\Http\Controllers\Controller;
 use App\Models\HumanResources\Staff;
-use App\Models\Settings\Subject; // Adjust namespace if needed
-use App\Models\Settings\SchoolClass; // Adjust namespace if needed
+use App\Models\Accounting\Subject; // Adjust namespace if needed
+use App\Models\Accounting\SchoolClass; // Adjust namespace if needed
+use App\Models\Accounting\AcademicYear;
 use App\Models\User; // Adjust namespace if needed
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;

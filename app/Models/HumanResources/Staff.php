@@ -6,9 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\User; // Assuming User model is in App\Models
-use App\Models\Settings\AcademicYear; // Assuming AcademicYear model location
-use App\Models\Settings\SchoolClass; // Assuming SchoolClass model location
-use App\Models\Settings\Subject; // Assuming Subject model location
+use App\Models\Accounting\AcademicYear; // Assuming AcademicYear model location
+use App\Models\Accounting\SchoolClass; // Assuming SchoolClass model location
+use App\Models\Accounting\Subject; // Assuming Subject model location
 
 class Staff extends Model
 {

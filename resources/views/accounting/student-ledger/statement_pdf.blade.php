@@ -3,105 +3,117 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-    <title>Statement for {{ $contact->name }}</title>
+    <title>Statement for {{ $student->name }}</title>
+    {{-- Simplified CSS for PDF rendering --}}
     <style>
-        /* Basic Styling - Reuse/Adapt from invoice/receipt PDF styles */
-        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 10pt; color: #333; line-height: 1.4; }
-        .container { width: 100%; margin: 0 auto; padding: 20px; }
+        body { font-family: 'Helvetica', 'Arial', sans-serif; font-size: 10pt; color: #333; line-height: 1.3; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-        th, td { padding: 6px 8px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: top; }
-        th { background-color: #f8f8f8; font-weight: bold; text-transform: uppercase; font-size: 8pt; color: #555; }
+        th, td { padding: 5px 7px; text-align: left; border-bottom: 1px solid #ddd; vertical-align: top; font-size: 9pt; }
+        th { background-color: #f2f2f2; font-weight: bold; border-bottom-width: 2px; border-color: #ccc;}
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         .font-bold { font-weight: bold; }
-        .mb-4 { margin-bottom: 16px; }
-        .header-section table, .bill-to-section table { border: none; }
-        .header-section td, .bill-to-section td { border: none; padding: 2px 0; }
-        .items-table thead th { background-color: #eee; }
-        .items-table td { font-size: 9pt; }
-        .total-row td { font-weight: bold; border-top: 1px solid #aaa; padding-top: 8px; }
+        .header-info { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+        .student-info { margin-bottom: 20px; }
+        tfoot td { font-weight: bold; border-top: 1px solid #aaa; }
         .footer { margin-top: 30px; padding-top: 10px; border-top: 1px solid #ccc; font-size: 8pt; text-align: center; color: #777; }
+        /* Basic table styling */
+        table.items-table { border: 1px solid #ccc; }
+        table.items-table th, table.items-table td { border: 1px solid #eee; }
+
     </style>
 </head>
 <body>
-    <div class="container">
+    <div> {{-- Main container --}}
 
-        {{-- Header Table --}}
-        <table class="header-section">
-            <tr>
-                <td style="width: 60%;">
-                    <h1 style="font-size: 16pt; font-weight: bold;">{{ config('app.name', 'Your Company') }}</h1>
-                    <p>{{ config('accounting.company_address', '123 Main St, City, Country') }}</p>
-                </td>
-                <td style="width: 40%; vertical-align: top; text-align: right;">
-                    <h2 style="font-size: 14pt; font-weight: bold;">Account Statement</h2>
-                    <p><strong>Date Issued:</strong> {{ $statementDate->format('Y-m-d') }}</p>
-                </td>
-            </tr>
-        </table>
+        <div class="header-info">
+             {{-- Use table for basic layout if needed --}}
+             <table>
+                 <tr>
+                     <td style="width: 60%; border:none; padding: 0;">
+                         @if($school)
+                             <h1 style="font-size: 16pt; margin:0;">{{ $school->name ?? config('app.name', 'School/Company Name') }}</h1>
+                             {{-- Add school address/contact if available in $school object --}}
+                             {{-- <p>{{ $school->address ?? '' }}</p> --}}
+                         @else
+                              <h1 style="font-size: 16pt; margin:0;">{{ config('app.name', 'School/Company Name') }}</h1>
+                         @endif
+                     </td>
+                      <td style="width: 40%; border:none; padding: 0; text-align: right; vertical-align: top;">
+                         <h2 style="font-size: 14pt; margin:0;">Student Statement</h2>
+                         <p>Generated: {{ $generatedDate ?? now()->format('Y-m-d') }}</p>
+                      </td>
+                 </tr>
+             </table>
+        </div>
 
-        {{-- Bill To Section Table --}}
-        <table class="bill-to-section mb-4">
-             <tr>
-                <td style="width: 60%;">{{-- Spacer --}}</td>
-                <td style="width: 40%; vertical-align: top;">
-                    <strong>To:</strong><br>
-                    {{ $contact->name }}<br>
-                    @if($contact->student?->student_number) Student ID: {{ $contact->student->student_number }}<br> @endif
-                    @if($contact->address) {{ $contact->address }}<br> @endif
-                    {{-- Add city/state/etc if needed --}}
-                    @if($contact->email) {{ $contact->email }}<br> @endif
-                </td>
-            </tr>
-        </table>
+        <div class="student-info">
+            <h3>Student Information</h3>
+            <p><strong>Name:</strong> {{ $student->name }}</p>
+            <p><strong>Contact ID:</strong> {{ $student->id }}</p>
+            {{-- <p><strong>Student ID:</strong> {{ $student->student?->student_number ?? 'N/A' }}</p> --}}
+            <p><strong>Period:</strong> {{ $startDate->format('Y-m-d') }} to {{ $endDate->format('Y-m-d') }}</p>
+        </div>
 
-
-        {{-- Items Table --}}
+        <h3>Transaction History</h3>
         <table class="items-table">
             <thead>
                 <tr>
                     <th>Date</th>
                     <th>Type</th>
-                    <th>Reference #</th>
+                    <th>Description</th>
+                    <th>Reference</th>
                     <th class="text-right">Debit (+)</th>
                     <th class="text-right">Credit (-)</th>
                     <th class="text-right">Balance</th>
                 </tr>
             </thead>
             <tbody>
-                 {{-- Opening Balance Row - Placeholder --}}
+                {{-- Starting Balance Row --}}
                 <tr>
-                    <td>{{ $ledgerItems->first()?->date ? $ledgerItems->first()->date->copy()->subDay()->format('Y-m-d') : 'Start' }}</td>
-                    <td colspan="4">Opening Balance</td>
-                    <td class="text-right">{{ number_format($openingBalance ?? 0, 2) }}</td>
+                    <td colspan="6" class="text-right font-bold">Starting Balance as of {{ $startDate->format('Y-m-d') }}</td>
+                    <td class="text-right font-bold">{{ number_format($startingBalance ?? 0, 2) }}</td>
                 </tr>
 
-                @forelse($ledgerItems as $item)
+                {{-- Transactions --}}
+                @isset($transactions)
+                    @forelse($transactions as $transaction)
                     <tr>
-                        <td>{{ optional($item->date)->format('Y-m-d') }}</td>
-                        <td>{{ ucfirst($item->type) }}</td>
-                        <td>{{ $item->number }}</td>
-                        <td class="text-right">{{ $item->debit > 0 ? number_format($item->debit, 2) : '' }}</td>
-                        <td class="text-right">{{ $item->credit > 0 ? number_format($item->credit, 2) : '' }}</td>
-                        <td class="text-right">{{ number_format($item->balance, 2) }}</td>
+                        <td>{{ $transaction['date'] instanceof \Carbon\Carbon ? $transaction['date']->format('Y-m-d') : ($transaction['date'] ?? 'N/A') }}</td>
+                        <td>{{ $transaction['type'] ?? 'N/A' }}</td>
+                        <td>{{ $transaction['description'] ?? 'N/A' }}</td>
+                        <td>{{ $transaction['reference'] ?? '' }}</td>
+                        <td class="text-right">{{ isset($transaction['debit']) && $transaction['debit'] > 0 ? number_format($transaction['debit'], 2) : '' }}</td>
+                        <td class="text-right">{{ isset($transaction['credit']) && $transaction['credit'] > 0 ? number_format($transaction['credit'], 2) : '' }}</td>
+                        <td class="text-right">{{ isset($transaction['running_balance']) ? number_format($transaction['running_balance'], 2) : 'N/A' }}</td>
                     </tr>
-                @empty
-                    <tr><td colspan="6" class="text-center">No transactions found in this period.</td></tr>
-                @endforelse
+                    @empty
+                    <tr>
+                        <td colspan="7" class="text-center">No transactions found during this period.</td>
+                    </tr>
+                    @endforelse
+                @else
+                     <tr>
+                         <td colspan="7" class="text-center">Transaction data not available.</td>
+                     </tr>
+                @endisset
             </tbody>
-             <tfoot >
-                <tr class="total-row">
-                    <td colspan="5" class="text-right font-bold">Closing Balance:</td>
-                    <td class="text-right font-bold">{{ number_format($ledgerItems->last()->balance ?? $openingBalance ?? 0, 2) }}</td>
-                </tr>
-            </tfoot>
+             @isset($transactions)
+                 @if($transactions->isNotEmpty())
+                    <tfoot>
+                        <tr>
+                            <td colspan="6" class="text-right"><strong>Closing Balance as of {{ $endDate->format('Y-m-d') }}:</strong></td>
+                            <td class="text-right"><strong>{{ number_format($transactions->last()['running_balance'] ?? $startingBalance ?? 0, 2) }}</strong></td>
+                        </tr>
+                    </tfoot>
+                @endif
+             @endisset
         </table>
 
-        {{-- Footer --}}
         <div class="footer">
-            Please contact us if you have any questions about this statement.
+            Thank you!
         </div>
 
-    </div> {{-- End Container --}}
+    </div> {{-- End Main container --}}
 </body>
 </html>

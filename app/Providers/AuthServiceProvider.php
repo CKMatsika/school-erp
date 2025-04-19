@@ -2,8 +2,12 @@
 
 namespace App\Providers;
 
+// Import necessary classes at the top
+use App\Models\Accounting\SmsGateway; // <-- Import your SmsGateway model
+use App\Policies\SmsGatewayPolicy;    // <-- Import the SmsGatewayPolicy you created
+
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
-use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Gate; // Keep Gate facade if you use Gates elsewhere
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -13,7 +17,12 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
-        // 'App\Models\Model' => 'App\Policies\ModelPolicy',
+        // 'App\Models\Model' => 'App\Policies\ModelPolicy', // Default example
+        SmsGateway::class => SmsGatewayPolicy::class,     // <-- Add this line to register your policy
+
+        // Add other policies here as needed, for example:
+        // \App\Models\Accounting\Invoice::class => \App\Policies\InvoicePolicy::class,
+        // \App\Models\Accounting\Contact::class => \App\Policies\ContactPolicy::class,
     ];
 
     /**
@@ -21,8 +30,10 @@ class AuthServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // This line automatically discovers and registers policies based on the $policies array
         $this->registerPolicies();
 
-        //
+        // You can define Gates here if needed, but Policies handle model authorization
+        // Gate::define('view-dashboard', function ($user) { ... });
     }
 }

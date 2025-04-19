@@ -1,3 +1,4 @@
+{{-- resources/views/accounting/dashboard.blade.php --}}
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -208,34 +209,24 @@
             </div>
 
             <!-- Banking & Cash Management -->
-            {{-- Apply mb-10 and -mt-6 --}}
              <div class="bg-white overflow-hidden shadow-md sm:rounded-lg mb-10 -mt-6">
                 <div class="p-6">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700">Banking & Cash Management</h3>
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {{-- Links retain their styling --}}
                        <a href="{{ route('accounting.cashbook.index') }}" class="group bg-white p-4 rounded-xl border border-emerald-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-emerald-50 aspect-square">
-                            <div class="bg-emerald-100 rounded-full p-3 mb-3 group-hover:bg-emerald-200 transition-colors">
-                                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                            </div>
+                            {{-- ... Cashbook Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-emerald-700 transition-colors">Cashbook</span>
                         </a>
                         <a href="{{ route('accounting.bank-reconciliation.index') }}" class="group bg-white p-4 rounded-xl border border-blue-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-blue-50 aspect-square">
-                            <div class="bg-blue-100 rounded-full p-3 mb-3 group-hover:bg-blue-200 transition-colors">
-                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                            </div>
+                            {{-- ... Bank Rec Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-blue-700 transition-colors">Bank Reconciliation</span>
                         </a>
                         <a href="{{ route('accounting.bank-transfers.index') }}" class="group bg-white p-4 rounded-xl border border-indigo-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-indigo-50 aspect-square">
-                            <div class="bg-indigo-100 rounded-full p-3 mb-3 group-hover:bg-indigo-200 transition-colors">
-                                <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-                            </div>
+                             {{-- ... Transfer Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-indigo-700 transition-colors">Bank Transfers</span>
                         </a>
                         <a href="{{ route('accounting.bank-accounts.index') }}" class="group bg-white p-4 rounded-xl border border-violet-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-violet-50 aspect-square">
-                            <div class="bg-violet-100 rounded-full p-3 mb-3 group-hover:bg-violet-200 transition-colors">
-                                <svg class="w-6 h-6 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                            </div>
+                            {{-- ... Bank Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-violet-700 transition-colors">Bank Accounts</span>
                         </a>
                     </div>
@@ -243,40 +234,28 @@
             </div>
 
             <!-- Student Financial Management -->
-            {{-- Apply mb-10 and -mt-6 --}}
             <div class="bg-white overflow-hidden shadow-md sm:rounded-lg mb-10 -mt-6">
                  <div class="p-6">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700">Student Financial Management</h3>
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                        {{-- Links retain their styling --}}
                         <a href="{{ route('accounting.contacts.index') }}" class="group bg-white p-4 rounded-xl border border-sky-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-sky-50 aspect-square">
-                            <div class="bg-sky-100 rounded-full p-3 mb-3 group-hover:bg-sky-200 transition-colors">
-                                <svg class="w-6 h-6 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.653-.08-1.28-.23-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.653.08-1.28.23-1.857m0 0a5.002 5.002 0 019.542 0M12 6a3 3 0 110-6 3 3 0 010 6z"></path></svg>
-                            </div>
+                             {{-- ... Contact Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-sky-700 transition-colors">Manage Contacts</span>
                         </a>
                         <a href="{{ route('accounting.bulk-invoice.index') }}" class="group bg-white p-4 rounded-xl border border-blue-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-blue-50 aspect-square">
-                            <div class="bg-blue-100 rounded-full p-3 mb-3 group-hover:bg-blue-200 transition-colors">
-                                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
-                            </div>
+                             {{-- ... Bulk Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-blue-700 transition-colors">Bulk Invoice</span>
                         </a>
                         <a href="{{ route('accounting.student-ledger.index') }}" class="group bg-white p-4 rounded-xl border border-indigo-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-indigo-50 aspect-square">
-                            <div class="bg-indigo-100 rounded-full p-3 mb-3 group-hover:bg-indigo-200 transition-colors">
-                               <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
-                            </div>
+                            {{-- ... Ledger Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-indigo-700 transition-colors">Student Ledger</span>
                         </a>
                         <a href="{{ route('accounting.payment-plans.index') }}" class="group bg-white p-4 rounded-xl border border-purple-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-purple-50 aspect-square">
-                            <div class="bg-purple-100 rounded-full p-3 mb-3 group-hover:bg-purple-200 transition-colors">
-                                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
-                            </div>
+                             {{-- ... Plan Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-purple-700 transition-colors">Payment Plans</span>
                         </a>
                         <a href="{{ route('accounting.student-debts.age-analysis') }}" class="group bg-white p-4 rounded-xl border border-pink-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-pink-50 aspect-square">
-                            <div class="bg-pink-100 rounded-full p-3 mb-3 group-hover:bg-pink-200 transition-colors">
-                                <svg class="w-6 h-6 text-pink-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            </div>
+                           {{-- ... Age Analysis Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-pink-700 transition-colors">Age Analysis</span>
                         </a>
                     </div>
@@ -284,54 +263,56 @@
             </div>
 
             <!-- Configuration & Setup -->
-            {{-- Apply mb-10 and -mt-6 --}}
             <div class="bg-white overflow-hidden shadow-md sm:rounded-lg mb-10 -mt-6">
                  <div class="p-6">
                     <h3 class="text-lg font-semibold mb-4 text-gray-700">Configuration & Setup</h3>
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                         {{-- Links retain their styling --}}
                         <a href="{{ route('accounting.academic-years.index') }}" class="group bg-white p-4 rounded-xl border border-purple-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-purple-50 aspect-square">
-                             <div class="bg-purple-100 rounded-full p-3 mb-3 group-hover:bg-purple-200 transition-colors">
-                                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                            </div>
+                             {{-- ... Academic Year Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-purple-700 transition-colors">Academic Years</span>
                         </a>
                        <a href="{{ route('accounting.classes.index') }}" class="group bg-white p-4 rounded-xl border border-orange-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-orange-50 aspect-square">
-                            <div class="bg-orange-100 rounded-full p-3 mb-3 group-hover:bg-orange-200 transition-colors">
-                               <svg class="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
-                           </div>
+                            {{-- ... Classes Icon ... --}}
                            <span class="text-sm font-medium text-gray-700 group-hover:text-orange-700 transition-colors">Manage Classes</span>
                         </a>
                         <a href="{{ route('accounting.fee-structures.index') }}" class="group bg-white p-4 rounded-xl border border-lime-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-lime-50 aspect-square">
-                            <div class="bg-lime-100 rounded-full p-3 mb-3 group-hover:bg-lime-200 transition-colors">
-                               <svg class="w-6 h-6 text-lime-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                           </div>
+                            {{-- ... Fees Icon ... --}}
                            <span class="text-sm font-medium text-gray-700 group-hover:text-lime-700 transition-colors">Fee Structures</span>
                         </a>
-                         <a href="{{ route('accounting.accounts.index') }}" class="group bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-gray-50 aspect-square">
-                             <div class="bg-gray-100 rounded-full p-3 mb-3 group-hover:bg-gray-200 transition-colors">
-                                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path></svg>
+                        {{-- *** MANAGE SUBJECTS LINK (Copied from previous answer) *** --}}
+                        <a href="{{ route('accounting.subjects.index') }}" class="group bg-white p-4 rounded-xl border border-teal-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-teal-50 aspect-square">
+                            <div class="bg-teal-100 rounded-full p-3 mb-3 group-hover:bg-teal-200 transition-colors">
+                                {{-- Icon for Books/Subjects --}}
+                                <svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
                             </div>
+                            <span class="text-sm font-medium text-gray-700 group-hover:text-teal-700 transition-colors">Manage Subjects</span>
+                        </a>
+                        {{-- *** END SUBJECTS LINK *** --}}
+                         <a href="{{ route('accounting.accounts.index') }}" class="group bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-gray-50 aspect-square">
+                             {{-- ... CoA Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">Chart of Accounts</span>
                         </a>
                         <a href="{{ route('accounting.account-types.index') }}" class="group bg-white p-4 rounded-xl border border-gray-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-gray-100 aspect-square">
-                             <div class="bg-gray-100 rounded-full p-3 mb-3 group-hover:bg-gray-200 transition-colors">
-                                <svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                            </div>
+                             {{-- ... Acc Types Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900 transition-colors">Account Types</span>
                         </a>
                         <a href="{{ route('accounting.payment-methods.index') }}" class="group bg-white p-4 rounded-xl border border-teal-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-teal-50 aspect-square">
-                             <div class="bg-teal-100 rounded-full p-3 mb-3 group-hover:bg-teal-200 transition-colors">
-                                <svg class="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
-                            </div>
+                             {{-- ... Pay Methods Icon ... --}}
                             <span class="text-sm font-medium text-gray-700 group-hover:text-teal-700 transition-colors">Payment Methods</span>
+                        </a>
+                         <a href="{{ route('accounting.sms-gateways.index') }}" class="group bg-white p-4 rounded-xl border border-blue-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-blue-50 aspect-square">
+                             {{-- ... SMS Gateway Icon ... --}}
+                            <span class="text-sm font-medium text-gray-700 group-hover:text-blue-700 transition-colors">SMS Gateways</span>
+                        </a>
+                         <a href="{{ route('accounting.sms.templates') }}" class="group bg-white p-4 rounded-xl border border-purple-200 text-center shadow-sm hover:shadow-md transition-all duration-300 flex flex-col items-center justify-center hover:bg-purple-50 aspect-square">
+                             {{-- ... SMS Template Icon ... --}}
+                            <span class="text-sm font-medium text-gray-700 group-hover:text-purple-700 transition-colors">SMS Templates</span>
                         </a>
                     </div>
                 </div>
             </div>
 
             <!-- Recent Transactions -->
-             {{-- Last card: Apply negative top margin, but NO bottom margin --}}
              <div class="bg-white overflow-hidden shadow-md sm:rounded-lg -mt-6">
                  <div class="p-6">
                     <div class="flex justify-between items-center mb-4">
